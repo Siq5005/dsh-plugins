@@ -151,7 +151,9 @@ def run_visual(recorder: EventRecorder) -> int:
             self._pulse_resume: tuple[str, str | None] | None = None
 
             self.setWindowFlags(
-                Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus
+                # 与上游一致：不加 WindowDoesNotAcceptFocus，避免 macOS 上
+                # 无焦点窗口收不到鼠标事件导致无法拖动。
+                Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
             )
             self.setAttribute(Qt.WA_TranslucentBackground)
             self.setFixedSize(self.BASE_W, self.BASE_H)
@@ -263,8 +265,12 @@ def run_visual(recorder: EventRecorder) -> int:
             w = max(1, int(self.PET_W * scale))
             h = max(1, int(self.PET_H * scale))
             scaled = pixmap.scaled(w, h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            # setPixmap 只更新 sizeHint，QLabel 不会自动调整自身尺寸；
+            # 不 adjustSize 会把角色裁在默认 100x30 的框里。
             self.pet.setPixmap(scaled)
-            self.pet.move(int((self.width() - w) / 2 + dx), int(self.height() - h - 12 + dy))
+            self.pet.adjustSize()
+            sw, sh = scaled.width(), scaled.height()
+            self.pet.move(int((self.width() - sw) / 2 + dx), int(self.height() - sh - 12 + dy))
 
         # ---- 空闲微动画 ------------------------------------------------
         def _schedule_idle_micro(self) -> None:
