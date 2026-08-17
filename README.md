@@ -25,12 +25,12 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/hello-plugin"
 ### 2. 稀疏克隆（拿插件源码）
 
 ```sh
-git clone --filter=blob:none --no-checkout https://github.com/Siq5005/dsh-plugins.git
+git clone --filter=blob:none --sparse https://github.com/Siq5005/dsh-plugins.git
 cd dsh-plugins
 git sparse-checkout set bundles/hello-plugin
 ```
 
-只下载目标插件的文件内容（`--filter=blob:none` 为 partial clone，元数据极轻）。
+只下载目标插件的文件内容（`--filter=blob:none` 为 partial clone，元数据极轻）。根目录索引文件（README / plugins.json）会一并检出，便于继续搜寻；其余目录不下载。
 
 ### 3. 免 git 下载
 
