@@ -76,8 +76,9 @@
   - 修复：角色未渲染（QLabel `adjustSize`）、无法拖动（去掉 `WindowDoesNotAcceptFocus`）、完成/出错动画无限循环（PULSE TTL 过期回落）。
   - 功能：气泡跟随角色缩放并自适应窗口高度；锁定模式（点击穿透，类似悬浮歌词）；记住窗口位置（`runtime/layout_store.py`，重启恢复 + 屏幕 clamp）；macOS 全桌面显示（NSWindow `CanJoinAllSpaces`）；隐藏 Dock 图标（accessory 激活策略）；移除空闲呼吸。
 - **遗留（2026-08-17 更新）**：
-  - ✅ 已清零：布局持久化、气泡跟随、锁定、全桌面、隐藏 Dock、动画回落（见上）。
-  - ⏳ 仍遗留：**未打包 helper 单文件**（仍依赖本机 Python + venv：PySide6 + pyobjc，他人安装需自备环境）；**未实现走动动画与摸头/戳等轻互动**（素材齐备，动画逻辑未做）。
+  - ✅ 已清零：布局持久化、气泡跟随、锁定、全桌面、隐藏 Dock、动画回落、**helper 单文件打包**（见下）。
+  - ✅ helper 单文件打包（2026-08-17）：PyInstaller onefile 构建为 `runtime/bin/darwin-arm64/dsh-dafeiyu-mac-helper`（约 39MB，含 PySide6 + pyobjc + assets），helper-process 自动优先使用打包二进制、无则回退 python3；构建脚本 `scripts/build-helper.sh` 可为本机平台重建；其他平台需自行构建。
+  - ⏳ 仍遗留：**未实现走动动画与摸头/戳等轻互动**（素材齐备，动画逻辑未做）——已列入下个版本开发项。
 - **注意**：本插件素材版权风险与上游相同，仅作学习复刻用途。
 
 ## D-005 第二个实际插件：dsh-deepseek-cost（对话费用统计）

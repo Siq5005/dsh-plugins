@@ -18,6 +18,8 @@
     "runtime/helper.py",
     "runtime/animation_model.py",
     "runtime/layout_store.py",
+    "runtime/bin/",
+    "scripts/build-helper.sh",
     "assets/pet/",
     "assets/pet-manifest.json",
     "cordis.patch.yml",

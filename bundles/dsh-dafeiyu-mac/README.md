@@ -35,8 +35,10 @@
 
 ## 系统要求
 
-- macOS（Node 端 `os` 不限，helper 走 `python3`）
-- Python 3.11+，且已安装依赖：`pip install -r requirements.txt`（PySide6）
+- **macOS arm64**：开箱即用——已内置打包好的 helper 单文件（`runtime/bin/darwin-arm64/`，
+  无需自备 Python / PySide6）。
+- **其他平台 / 源码开发模式**：需要 Python 3.11+ 且 `pip install -r requirements.txt`
+  （PySide6）；或运行 `bash scripts/build-helper.sh` 为当前平台构建 helper 单文件。
 - 可用的 DeepSeek Harness WebUI
 
 ## 安装
@@ -71,7 +73,10 @@ python3 runtime/helper.py              # 可视化模式（需 PySide6）
 - 代码（`src/`、`runtime/`、`lib/`）为复刻实现，结构参考上游（MIT），
   上游许可文本见 [LICENSE-UPSTREAM.md](LICENSE-UPSTREAM.md)。
 
-## 已知限制（核心链路版）
+## 已知限制
 
-- 未打包 PyInstaller 单文件 helper；需本机 Python + PySide6（+ pyobjc 以在所有桌面显示）。
-- 未实现走动动画、摸头/戳等轻互动。
+- 内置打包 helper 为 **darwin-arm64** 单文件（PyInstaller onefile，约 39MB）；
+  其他平台需自行 `bash scripts/build-helper.sh` 构建（详见系统要求）。
+- onefile 首启需解压运行时（约 5~8 秒），属 PyInstaller 单文件的固有代价。
+- 未实现走动动画、摸头/戳等轻互动（计划为下个版本开发项）。
+- 需要 pyobjc 才能在所有桌面（Spaces）显示与隐藏 Dock 图标——已包含在打包产物内。

@@ -7,6 +7,7 @@
  */
 
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -19,11 +20,23 @@ import {
 const here = dirname(fileURLToPath(import.meta.url))
 const defaultHelperPath = resolve(here, '..', 'runtime', 'helper.py')
 
+/** 打包好的单文件可执行：runtime/bin/<platform>-<arch>/dsh-dafeiyu-mac-helper */
+function bundledHelperPath() {
+  const platform = process.platform === 'win32' ? 'win32' : process.platform
+  const suffix = process.platform === 'win32' ? '.exe' : ''
+  return resolve(here, '..', 'runtime', 'bin', `${platform}-${process.arch}`, `dsh-dafeiyu-mac-helper${suffix}`)
+}
+
 function defaultCommand() {
+  // 优先使用打包好的单文件可执行（无需用户自备 Python/PySide6）；
+  // 不存在时回退到系统 python3（开发模式）。
+  const bundled = bundledHelperPath()
+  if (existsSync(bundled)) return bundled
   return process.env.DSH_DAFEIYU_PYTHON || (process.platform === 'win32' ? 'py' : 'python3')
 }
 
 function defaultArgs(command, helperPath) {
+  if (command === bundledHelperPath()) return []
   if (process.platform === 'win32' && /(^|[\\/])py(?:\.exe)?$/i.test(command)) {
     return ['-3', helperPath]
   }
