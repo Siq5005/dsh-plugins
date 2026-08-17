@@ -14,7 +14,7 @@
       "description": "插件条目列表，新增插件必须追加",
       "items": {
         "type": "object",
-        "required": ["name", "description", "type", "path", "install"],
+        "required": ["name", "description", "type", "install"],
         "properties": {
           "name": {
             "type": "string",
@@ -30,7 +30,7 @@
           },
           "path": {
             "type": "string",
-            "description": "仓库内相对路径，如 bundles/hello-plugin"
+            "description": "仓库内相对路径，如 bundles/hello-plugin；外部安装的包（设置了 repo）可省略"
           },
           "install": {
             "type": "string",

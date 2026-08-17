@@ -1,0 +1,47 @@
+{
+  "name": "dsh-workbench",
+  "version": "0.1.0",
+  "description": "DSH Web GUI 右侧工作台：文件浏览/编辑/预览 + 内嵌浏览器 + Git 面板，VS Code 式布局（占用 shell details 布局列，不遮挡对话区）",
+  "author": "Siq5005",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ],
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "workbench",
+    "file-explorer",
+    "git",
+    "browser",
+    "right-panel"
+  ],
+  "license": "MIT"
+}

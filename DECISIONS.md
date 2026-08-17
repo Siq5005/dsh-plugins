@@ -95,3 +95,29 @@
   - ✅ **费用设置页 UI**（2026-08-17）：`settings.section` 新增「费用统计」页——DeepSeek 官方模型只读展示默认定价，其他模型填写 flat 三桶价（每百万 tokens 元），保存后**即时生效**（无需重启）。
   - 架构随之调整：**计价移出投影**——`tokenCost` 投影只存按模型 × 高峰/空闲分桶的纯 token 事实（stateVersion 2），价格由浏览器端读取 Host 设置命名空间（`/plugins/dsh-deepseek-cost/config` 端点）后即时折算；改价不重建投影、不丢累计。
   - ⏳ 仍遗留：官方模型定价仍为代码快照（官方调价需更新 `src/pricing.js`，改代码后重启生效）；自定义模型按 flat 价计费（不区分高峰/空闲）。
+
+## D-006 第三个实际插件：dsh-workbench（右侧工作台）
+
+- **日期**：2026-08-17
+- **状态**：已采纳（Adopted）
+- **背景**：需要文件浏览/编辑/预览 + 内嵌浏览器 + Git 面板的 VS Code 式工作台，先对比了上游实现再决定借鉴方向。
+- **决策**：
+  - 上游对比：`DSH-better-sidebar`（MIT，工作台全功能但右浮层遮挡对话、无 watcher）vs `dsh-web-ui/dsh-aionui-panel`（BSD-3/Apache-2.0，文件/Git 细节更精但无浏览器/终端）。**文件+Git 细节借鉴 aionui 方向，布局/浏览器借鉴 better-sidebar 方向**，代码全部自写。
+  - **布局**：占 shell `details` 布局列（`layout.openDetails/closeDetails`），对话区收缩不遮挡；**取舍：替换内置「工具调用详情」右面板**。入口仅会话头部「工作台」按钮。
+  - 数据层：host 经 `/dsh-workbench/*` HTTP 路由（`webServer.register`，loopback 围栏 + `fs.contains` 越界校验），client 用 `fetch`——静态 bundle 不走 `harness.handle/host.call`（那是动态插件机制）。
+  - 形态：`bundles/dsh-workbench/`，host `src/index.js`（ESM）+ client `lib/client.js`（`window.__ModuleLoader__` 手写包），符合 D-001/D-002 的集合仓库规范；已装入 `web` profile。
+  - 许可：MIT + 上游借鉴署名（better-sidebar MIT、aionui-panel BSD-3、AionUi）。
+- **验证**：先以动态插件 8 个版本迭代调通（JSON 序列化、布局切换、入口可见性等），确认后固化为 bundle；`--dump-config` 确认挂载行。
+- **遗留（待办）**：文件名搜索、右键菜单（新建/重命名/删除/复制路径）、保存 mtime 冲突检测、SSE 变更流（fs watcher + git 轮询）——均为 aionui-panel 已有细节，作为下一迭代目标。
+
+## D-007 外部 npm 插件入索引（方案 C 应用：dsh-web-ui 全家桶）
+
+- **日期**：2026-08-17
+- **状态**：已采纳（Adopted）
+- **背景**：本机 `web` profile（桌面端即用此 profile）安装了 dsh-web-ui 全家桶的三个插件——梁神模式（`@linxin666/dsh-liangshen`）、皮肤中心（`@linxin666/dsh-skins` + `@linxin666/dsh-client-ui-web-ui-settings`）、SSH 运维（`@linxin666/dsh-ssh`），均来自上游 [zhu1090093659/dsh-web-ui](https://github.com/zhu1090093659/dsh-web-ui)（npm 发布）。需要让"本仓库使用的插件"可被搜寻与复现安装。
+- **决策**：
+  - 外部插件**不入 bundles/ 复制代码**（跟随上游升级），以索引条目收录：`type: bundle` + `install` 写 npm 安装命令 + `repo` 指向上游仓库，**省略 `path`**（无仓库内路径）。
+  - `plugins.schema.json` 相应放宽：`path` 从 required 改为可选（设置 `repo` 的外部包省略），描述注明"外部安装的包（设置了 repo）可省略"。
+  - 皮肤中心的正确安装为两条命令（`dsh-skins` 提供皮肤 + 皮肤中心；`dsh-client-ui-web-ui-settings` 提供设置侧栏与 `web-ui.plugin.item` 槽位），`dsh-skins` 0.1.20 起 10 款皮肤内置包内，无需单独装皮肤包。
+- **验证**：`--dump-config` 确认 `web-ui-skin-center` / `ui-web-ui-settings` 行挂载；桌面端重启后设置页出现皮肤中心。
+- **备注**：dsh-ssh 的 ssh2 原生加密扩展在 Node 26 下编译失败，上游标注为可选、自动回退纯 JS 实现，功能不受影响。

@@ -36,6 +36,42 @@
       "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-vision-adapter\"",
       "tags": ["vision", "multimodal", "image", "deepseek", "image-analysis"],
       "added": "2026-08-17"
+    },
+    {
+      "name": "dsh-workbench",
+      "description": "右侧工作台：文件浏览/编辑/预览 + 内嵌浏览器 + Git 面板，VS Code 式布局（占用 shell details 布局列，不遮挡对话区；借鉴 dsh-better-sidebar 与 dsh-aionui-panel 设计）",
+      "type": "bundle",
+      "path": "bundles/dsh-workbench",
+      "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-workbench\"",
+      "tags": ["workbench", "file-explorer", "git", "browser", "right-panel", "vscode-like"],
+      "added": "2026-08-17"
+    },
+    {
+      "name": "@linxin666/dsh-liangshen",
+      "description": "梁神模式：面向 DeepSeek V4 Pro 的两阶段锚定 agent 预设（首轮 Minimal 双工具锚定轨迹 → 自动切 Code Mode / PTC）。外部 npm 安装（dsh-web-ui 全家桶）",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add @linxin666/dsh-liangshen",
+      "repo": "https://github.com/zhu1090093659/dsh-web-ui",
+      "tags": ["agent-preset", "anchored-standard", "liangshen", "dsh-web-ui"],
+      "added": "2026-08-17"
+    },
+    {
+      "name": "@linxin666/dsh-skins",
+      "description": "皮肤中心 + 10 款内置皮肤（miku/matrix/whale-mom/trading 等），先试穿再应用；皮肤中心需同时安装 @linxin666/dsh-client-ui-web-ui-settings。外部 npm 安装（dsh-web-ui 全家桶）",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add @linxin666/dsh-skins && dsh plugin --profile <name> add @linxin666/dsh-client-ui-web-ui-settings",
+      "repo": "https://github.com/zhu1090093659/dsh-web-ui",
+      "tags": ["skins", "theme", "skin-center", "dsh-web-ui"],
+      "added": "2026-08-17"
+    },
+    {
+      "name": "@linxin666/dsh-ssh",
+      "description": "远程 SSH 运维：主机管理面板 + Web 终端 + SFTP 传输 + 端口隧道 + 集群执行 + agent 工具（ssh_list/ssh_exec/ssh_upload/ssh_download/ssh_tunnel/ssh_cluster）。外部 npm 安装（dsh-web-ui 全家桶）",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add @linxin666/dsh-ssh",
+      "repo": "https://github.com/zhu1090093659/dsh-web-ui",
+      "tags": ["ssh", "remote", "sftp", "tunnel", "cluster", "dsh-web-ui"],
+      "added": "2026-08-17"
     }
   ]
 }
