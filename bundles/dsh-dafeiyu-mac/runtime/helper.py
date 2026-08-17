@@ -456,6 +456,21 @@ class PetWindow(QWidget):
         self.QApplication.quit()
 
 
+def hide_dock_icon() -> None:
+    """macOS：以 accessory 激活策略运行，隐藏 Dock 图标与菜单栏。
+
+    桌宠窗口仍正常显示与交互；非 macOS 或 pyobjc 缺失时静默降级。
+    DSH_DAFEIYU_VERBOSE=1 时把生效的策略值打印到 stderr（诊断用）。
+    """
+    try:
+        from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+        NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+        if os.environ.get("DSH_DAFEIYU_VERBOSE") == "1":
+            print(f"activationPolicy={NSApplication.sharedApplication().activationPolicy()}", file=sys.stderr, flush=True)
+    except Exception:
+        pass
+
+
 def run_visual(recorder: EventRecorder) -> int:
     try:
         from PySide6.QtCore import Qt  # noqa: F401  (window flags inside PetWindow)
@@ -484,6 +499,8 @@ def run_visual(recorder: EventRecorder) -> int:
     }
 
     app = QApplication(sys.argv)
+    # 隐藏 Dock 图标（在窗口显示前设置，避免图标闪现）。
+    hide_dock_icon()
     window = PetWindow(model, asset_root, inbox, config)
     window.show()
     window._enable_all_spaces()
