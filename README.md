@@ -2,7 +2,7 @@
 
 我的 DeepSeek Harness (DSH) 插件集合仓库 —— 归档 AI 自用插件，同时支持他人在集合中**搜寻**并**只取需要的插件**。
 
-决策记录见 [DECISIONS.md](DECISIONS.md)。
+决策记录见 [DECISIONS.md](DECISIONS.md)。新开对话继续开发请先读 [SESSION_START.md](SESSION_START.md)。
 
 ## 插件目录（索引）
 
