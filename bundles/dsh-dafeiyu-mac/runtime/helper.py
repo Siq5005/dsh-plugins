@@ -225,7 +225,12 @@ class PetWindow(QWidget):
         elif kind == "pulse":
             self.model.apply_state(message.get("state", "IDLE"), message.get("resumeActivity"))
             self._pulse_until_ms = time.monotonic() * 1000 + int(message.get("ttlMs", 1500))
-            self._pulse_resume = (message.get("resumeState", "IDLE"), message.get("resumeActivity"))
+            self._pulse_resume = (
+                message.get("resumeState", "IDLE"),
+                message.get("resumeActivity"),
+                message.get("resumeMessage"),
+                message.get("resumeDetail"),
+            )
             self._set_bubble(message)
         elif kind == "task":
             self._set_bubble(message)
@@ -279,11 +284,24 @@ class PetWindow(QWidget):
         now = time.monotonic() * 1000
         delta = now - self._clock_ms
         self._clock_ms = now
+        # PULSE（成功/失败）是带 TTL 的瞬态状态：过期后回落到 resume 状态，
+        # 避免"完成/出错"动画无限循环。
+        if self._pulse_until_ms and now >= self._pulse_until_ms:
+            self._expire_pulse()
         self.model.tick(max(1, min(int(delta), 200)))
         self._render_pet()
         # 动画位移会让角色移动，气泡保持贴在其上方。
         if self.bubble.isVisible():
             self._layout_bubble()
+
+    def _expire_pulse(self) -> None:
+        self._pulse_until_ms = 0
+        if self._pulse_resume is None:
+            return
+        state, activity, message, detail = self._pulse_resume
+        self._pulse_resume = None
+        self.model.apply_state(state, activity)
+        self._set_bubble({"message": message, "detail": detail})
 
     def _render_pet(self) -> None:
         frame_path = self.model.frame
