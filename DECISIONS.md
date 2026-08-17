@@ -108,7 +108,7 @@
   - 形态：`bundles/dsh-workbench/`，host `src/index.js`（ESM）+ client `lib/client.js`（`window.__ModuleLoader__` 手写包），符合 D-001/D-002 的集合仓库规范；已装入 `web` profile。
   - 许可：MIT + 上游借鉴署名（better-sidebar MIT、aionui-panel BSD-3、AionUi）。
 - **验证**：先以动态插件 8 个版本迭代调通（JSON 序列化、布局切换、入口可见性等），确认后固化为 bundle；`--dump-config` 确认挂载行。
-- **遗留（待办）**：文件名搜索、右键菜单（新建/重命名/删除/复制路径）、保存 mtime 冲突检测、SSE 变更流（fs watcher + git 轮询）——均为 aionui-panel 已有细节，作为下一迭代目标。
+- **遗留（转为以后迭代，非阻塞）**：文件名搜索、右键菜单（新建/重命名/删除/复制路径）、保存 mtime 冲突检测、SSE 变更流（fs watcher + git 轮询）——均为 aionui-panel 已有细节，作为以后迭代的增强方向，不影响当前版本使用。
 
 ## D-007 外部 npm 插件入索引（方案 C 应用：dsh-web-ui 全家桶）
 
