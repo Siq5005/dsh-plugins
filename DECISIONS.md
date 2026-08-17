@@ -59,3 +59,18 @@
 2. 本地验证：`dsh plugin --profile dev add ./bundles/<name>`；
 3. 更新 `plugins.json` 与 README 目录表；
 4. `git commit` + `git push` 归档。
+
+---
+
+## D-004 首个实际插件：复刻 dsh-dafeiyu（macOS 桌宠）
+
+- **日期**：2026-08-17
+- **状态**：已采纳（Adopted）
+- **背景**：学习 `QCYTSN/dsh-dafeiyu`（大肥鱼桌宠插件）并复现一个作为集合第一个实际插件。
+- **决策**：
+  - 形态：macOS 桌宠窗口（PySide6 透明置顶）；核心链路优先，动画与交互简化。
+  - 素材：沿用上游 `assets/pet/` PNG，许可状态与上游一致（**不在 MIT 内**，见 bundle 内 `ASSET_LICENSE.md`）；代码为自写复刻实现（结构参考上游，MIT）。
+  - 实现：`bundles/dsh-dafeiyu-mac/`，三层架构——DSH JS 插件（Schema/settings/事件监听/reducer/helper 进程管理/协议）+ Python PySide6 渲染 + WebUI 设置卡片。
+  - 验证：Node 测试 14/14 通过（含模拟 DSH ctx 冒烟测试与 headless 集成）；PySide6 可视化冒烟通过。
+- **遗留**：未打包 helper 单文件（依赖本机 Python + PySide6）；未实现走动/互动动画与布局持久化。
+- **注意**：本插件素材版权风险与上游相同，仅作学习复刻用途。

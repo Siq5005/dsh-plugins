@@ -1,0 +1,52 @@
+{
+  "name": "dsh-dafeiyu-mac",
+  "version": "0.1.0",
+  "description": "macOS 桌面大肥鱼：由 DeepSeek Harness 会话状态驱动的桌宠伴侣（学习复刻自 dsh-dafeiyu）",
+  "author": "Siq5005",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./lib/client.js",
+    "./protocol": "./src/protocol.js",
+    "./reducer": "./src/companion-reducer.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/",
+    "lib/client.js",
+    "runtime/helper.py",
+    "runtime/animation_model.py",
+    "assets/pet/",
+    "assets/pet-manifest.json",
+    "cordis.patch.yml",
+    "README.md",
+    "ASSET_LICENSE.md",
+    "LICENSE-UPSTREAM.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings-plugins"
+      ],
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "desktop-pet",
+    "agent-companion",
+    "macos"
+  ],
+  "license": "MIT"
+}

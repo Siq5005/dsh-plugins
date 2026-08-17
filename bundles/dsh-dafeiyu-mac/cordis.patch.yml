@@ -1,0 +1,9 @@
+- insert:
+    - id: dsh-dafeiyu-mac
+      name: dsh-dafeiyu-mac
+      config:
+        enabled: true
+        scale: 1
+        activityLevel: normal
+        reducedMotion: false
+        includeSubagents: false

@@ -9,6 +9,15 @@
       "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/hello-plugin\"",
       "tags": ["example", "template"],
       "added": "2026-08-17"
+    },
+    {
+      "name": "dsh-dafeiyu-mac",
+      "description": "macOS 桌面大肥鱼：由 DSH 会话状态驱动的桌宠伴侣（复刻自 dsh-dafeiyu）",
+      "type": "bundle",
+      "path": "bundles/dsh-dafeiyu-mac",
+      "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-dafeiyu-mac\"",
+      "tags": ["desktop-pet", "companion", "macos", "pyside6", "replica"],
+      "added": "2026-08-17"
     }
   ]
 }

@@ -1,0 +1,105 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { CompanionReducer, toolActivity } from '../src/companion-reducer.js'
+import { CompanionMessageKind, CompanionState } from '../src/protocol.js'
+
+const session = { header: { id: 's1', cwd: '/work/proj' } }
+const subagentSession = { header: { id: 's2', origin: 'subagent', delegationDepth: 1 } }
+
+function runSequence(events) {
+  const reducer = new CompanionReducer()
+  const outputs = []
+  for (const { session: s, event } of events) {
+    for (const message of reducer.handle(s, event)) outputs.push(message)
+  }
+  return outputs
+}
+
+test('state flow: turn/start -> tool/call -> tool/result -> turn/end(success)', () => {
+  const outputs = runSequence([
+    { session, event: { type: 'turn/start', seq: 1 } },
+    { session, event: { type: 'tool/call', seq: 2, data: { name: 'bash', message: { source: { callId: 'c1' } } } } },
+    { session, event: { type: 'tool/result', seq: 3, data: { callId: 'c1' } } },
+    { session, event: { type: 'turn/end', seq: 4, data: { reason: { kind: 'completed' } } } },
+  ])
+  const states = outputs.filter((m) => m.kind === CompanionMessageKind.STATE)
+  assert.deepEqual(states.map((m) => m.state), [
+    CompanionState.THINKING,
+    CompanionState.WORKING,
+    CompanionState.THINKING,
+  ])
+  const pulses = outputs.filter((m) => m.kind === CompanionMessageKind.PULSE)
+  assert.equal(pulses.length, 1)
+  assert.equal(pulses[0].state, CompanionState.SUCCESS)
+  // 成功后通过 PULSE 的 resumeState 回落到 IDLE（不发单独的 IDLE STATE）
+  assert.equal(pulses[0].resumeState, CompanionState.IDLE)
+})
+
+test('waiting state on user-question tool and resume on user/message', () => {
+  const outputs = runSequence([
+    { session, event: { type: 'turn/start', seq: 1 } },
+    { session, event: { type: 'tool/call', seq: 2, data: { name: 'ask_user_question', message: { source: { callId: 'q1' } } } } },
+    { session, event: { type: 'user/message', seq: 3, data: { callId: 'q1' } } },
+  ])
+  const states = outputs.filter((m) => m.kind === CompanionMessageKind.STATE)
+  assert.deepEqual(states.map((m) => m.state), [
+    CompanionState.THINKING,
+    CompanionState.WAITING,
+    CompanionState.THINKING,
+  ])
+})
+
+test('todo/write emits TASK with progress', () => {
+  const reducer = new CompanionReducer()
+  reducer.handle(session, { type: 'turn/start', seq: 1 })
+  const outputs = reducer.handle(session, {
+    type: 'todo/write', seq: 2,
+    data: { todos: [
+      { content: '调研', status: 'completed' },
+      { content: '实现', status: 'in_progress' },
+      { content: '验证', status: 'pending' },
+    ] },
+  })
+  const task = outputs.find((m) => m.kind === CompanionMessageKind.TASK)
+  assert.ok(task, 'expected a TASK message')
+  assert.match(task.task, /实现/)
+  assert.deepEqual(task.progress, { completed: 1, total: 3, current: 2 })
+})
+
+test('subagents are ignored by default and can be included', () => {
+  const reducer = new CompanionReducer()
+  const outputs = reducer.handle(subagentSession, { type: 'turn/start', seq: 1 })
+  assert.equal(outputs.length, 0)
+
+  const reducer2 = new CompanionReducer({ includeSubagents: true })
+  const outputs2 = reducer2.handle(subagentSession, { type: 'turn/start', seq: 1 })
+  assert.equal(outputs2.length, 1)
+  assert.equal(outputs2[0].state, CompanionState.THINKING)
+})
+
+test('most urgent session wins across sessions', () => {
+  const reducer = new CompanionReducer()
+  reducer.handle(session, { type: 'turn/start', seq: 1 })
+  const waiting = { header: { id: 'w1', cwd: '/work/other' } }
+  const outputs = reducer.handle(waiting, {
+    type: 'tool/call', seq: 2, data: { name: 'ask_user_question', message: { source: { callId: 'q1' } } },
+  })
+  assert.equal(outputs[0].state, CompanionState.WAITING)
+  assert.equal(outputs[0].sessionId, 'w1')
+})
+
+test('disposeSession removes the session record', () => {
+  const reducer = new CompanionReducer()
+  reducer.handle(session, { type: 'turn/start', seq: 1 })
+  assert.equal(reducer.sessions.size, 1)
+  reducer.disposeSession(session)
+  assert.equal(reducer.sessions.size, 0)
+})
+
+test('toolActivity classifies tool names', () => {
+  assert.equal(toolActivity('web_search'), 'searching')
+  assert.equal(toolActivity('bash'), 'commanding')
+  assert.equal(toolActivity('edit'), 'editing')
+  assert.equal(toolActivity('npm test'), 'testing')
+  assert.equal(toolActivity('anything_else'), 'using-tool')
+})
