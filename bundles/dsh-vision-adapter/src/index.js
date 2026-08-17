@@ -10,6 +10,11 @@
  *   3. 注册 deepseek-vision 包装组路由：未接管（官方行在场）时的备选入口，
  *      在模型选择器里手动选择即可发图。
  *
+ * 依赖：本插件直接访问 ctx.tools / ctx.llm，必须声明
+ * `export const inject = ['tools', 'llm']`（Cordis 严格模式：未注入访问服务
+ * 会抛 "cannot get property without inject" 并导致 harness 启动崩溃）。
+ * attachments / settings / credentials 均通过 ctx.get / ctx.inject 动态获取。
+ *
  * 两种启用方式：
  *   A. 无感接管（推荐）：profile 补丁层禁用官方 llm-deepseek 行（见
  *      cordis.patch.yml 注释），插件自动接管 deepseek-official。
@@ -37,6 +42,14 @@ import {
 } from './adapter.js'
 
 export const name = 'dsh-vision-adapter'
+export const inject = ['tools', 'llm']
+export const CONFIG_ENDPOINT = '/plugins/dsh-vision-adapter/config'
+
+/** 设置页可 PATCH 的字段白名单。 */
+const PATCHABLE_FIELDS = new Set([
+  'enabled', 'baseURL', 'apiKey', 'model', 'autoCaption', 'captionPrompt',
+  'timeoutMs', 'cacheSize', 'cacheTtlMs', 'takeover', 'visionRoute',
+])
 
 export const Config = Schema.object({
   enabled: Schema.boolean().default(true).description('是否启用 dsh-vision-adapter'),
@@ -65,12 +78,123 @@ function adapterAvailable(llm, provider) {
   }
 }
 
+/** 去掉对象里的 undefined 字段（settings 与 yml 配置合并时用）。 */
+function omitUndefined(value) {
+  if (value === null || typeof value !== 'object') return {}
+  const out = {}
+  for (const [key, item] of Object.entries(value)) {
+    if (item !== undefined) out[key] = item
+  }
+  return out
+}
+
+/** 设置命名空间初始值（patch 配置的公开字段）。 */
+function publicConfig(config = {}) {
+  return omitUndefined(config)
+}
+
+/** 无设置服务的环境回退：只读本地值。 */
+function localSettingsScope(value) {
+  return {
+    get: () => value,
+    update: async () => {},
+    watch: () => () => {},
+  }
+}
+
+function jsonResponse(res, status, body) {
+  res.statusCode = status
+  res.setHeader('content-type', 'application/json')
+  res.end(JSON.stringify(body))
+}
+
+function isLoopback(address) {
+  return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1'
+}
+
+/** PATCH 载荷白名单清洗（防未知字段注入设置文档）。 */
+export function sanitizeConfigPatch(value) {
+  if (value === null || typeof value !== 'object') return {}
+  const out = {}
+  for (const [key, item] of Object.entries(value)) {
+    if (PATCHABLE_FIELDS.has(key) && item !== undefined) out[key] = item
+  }
+  return out
+}
+
+/** 配置端点的 GET 载荷：完整公开设置（含默认值）。 */
+export function configPayload(settings) {
+  return omitUndefined(settings.get())
+}
+
+/**
+ * 本地配置端点 handler：GET 返回当前设置；PATCH 更新（白名单清洗）。
+ * 仅接受回环地址 + 同源请求（与 dsh-deepseek-cost 相同的本地安全约定）。
+ */
+export function createConfigHandler(settings) {
+  return async (req, res) => {
+    if (!isLoopback(req.socket?.remoteAddress)) {
+      jsonResponse(res, 403, { error: 'local access only' })
+      return
+    }
+    const origin = req.headers?.origin
+    if (origin) {
+      let originHost
+      try { originHost = new URL(origin).host } catch {}
+      if (!originHost || originHost !== req.headers.host) {
+        jsonResponse(res, 403, { error: 'origin mismatch' })
+        return
+      }
+    }
+    if (req.method === 'GET') {
+      jsonResponse(res, 200, configPayload(settings))
+      return
+    }
+    if (req.method !== 'PATCH') {
+      jsonResponse(res, 405, { error: 'method not allowed' })
+      return
+    }
+    try {
+      const chunks = []
+      let bytes = 0
+      for await (const chunk of req) {
+        bytes += chunk.length
+        if (bytes > 64 * 1024) throw new Error('request body is too large')
+        chunks.push(chunk)
+      }
+      const patch = sanitizeConfigPatch(JSON.parse(Buffer.concat(chunks).toString('utf8')))
+      await settings.update(patch)
+      jsonResponse(res, 200, configPayload(settings))
+    } catch (error) {
+      jsonResponse(res, 400, { error: error instanceof Error ? error.message : String(error) })
+    }
+  }
+}
+
 export function apply(ctx, config) {
   if (config.enabled === false) return
 
   const imageMemory = createImageMemory(config.cacheSize)
   const answerCache = createAnswerCache(config.cacheSize, config.cacheTtlMs)
-  const current = () => config
+  let current = () => config
+
+  // ── 0. 设置命名空间 + 本地配置端点（WebUI 设置页读写，live 生效）────────
+  if (typeof ctx.inject === 'function') {
+    ctx.inject(['settings'], (settingsCtx) => {
+      const settings = settingsCtx.settings?.register?.('dsh-vision-adapter', Config, {
+        base: publicConfig(config),
+        applies: 'live',
+      }) ?? localSettingsScope(publicConfig(config))
+      // 运行时配置 = yml patch 默认 + 设置文档覆盖（设置页保存后即时生效）。
+      current = () => ({ ...config, ...omitUndefined(settings.get()) })
+      ctx.inject(['webServer'], (httpCtx) => {
+        httpCtx.effect(
+          () => httpCtx.webServer.register({ kind: 'exact', path: CONFIG_ENDPOINT, handler: createConfigHandler(settings) }),
+          'dsh-vision-adapter: local config endpoint',
+        )
+      })
+    })
+  }
 
   // ── 1. 工具：主模型按需看图 ──────────────────────────────────────────────
   ctx.tools.register(createAnalyzeImageTool(ctx, { config: current, imageMemory, answerCache }))
