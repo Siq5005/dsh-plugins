@@ -44,6 +44,10 @@ STATES = {"IDLE", "THINKING", "WORKING", "WAITING", "SUCCESS", "ERROR", "DISCONN
 # 气泡底部与角色顶部的间距（px）。
 BUBBLE_GAP = 8
 
+# 空闲呼吸参数：幅度（比例，±1%）与周期（秒，约 3.5s 一次）。
+BREATHE_AMPLITUDE = 0.01
+BREATHE_PERIOD_SEC = 3.5
+
 
 def bundle_root() -> Path:
     """Locate packaged assets both from source and a frozen build."""
@@ -295,9 +299,11 @@ class PetWindow(QWidget):
         if self.config["reduced_motion"]:
             motion = None
         phase = (self._clock_ms % 1000) / 1000.0
+        phase_sec = self._clock_ms / 1000.0
         dx = dy = 0.0
         if motion == "breathe":
-            scale *= 1.0 + 0.02 * math.sin(phase * math.tau)
+            # 缓慢呼吸：±1% 缩放，约 3.5s 一个周期（原实现 1s 太快、2% 太明显）。
+            scale *= 1.0 + BREATHE_AMPLITUDE * math.sin(phase_sec * (math.tau / BREATHE_PERIOD_SEC))
         elif motion == "bounce":
             dy = -14 * abs(math.sin(phase * math.tau))
         elif motion == "shake":
