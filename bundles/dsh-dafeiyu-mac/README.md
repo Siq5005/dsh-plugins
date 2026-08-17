@@ -73,6 +73,5 @@ python3 runtime/helper.py              # 可视化模式（需 PySide6）
 
 ## 已知限制（核心链路版）
 
-- 未打包 PyInstaller 单文件 helper；需本机 Python + PySide6。
-- 气泡位置为窗口上方固定区域；布局持久化（记住拖拽位置）未实现。
+- 未打包 PyInstaller 单文件 helper；需本机 Python + PySide6（+ pyobjc 以在所有桌面显示）。
 - 未实现走动动画、摸头/戳等轻互动。

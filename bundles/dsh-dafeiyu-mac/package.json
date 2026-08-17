@@ -17,6 +17,7 @@
     "lib/client.js",
     "runtime/helper.py",
     "runtime/animation_model.py",
+    "runtime/layout_store.py",
     "assets/pet/",
     "assets/pet-manifest.json",
     "cordis.patch.yml",

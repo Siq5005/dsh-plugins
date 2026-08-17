@@ -28,8 +28,10 @@ from typing import Any, TextIO
 
 try:
     from .animation_model import AnimationModel
+    from .layout_store import default_layout_path, load_layout, save_layout
 except ImportError:
     from animation_model import AnimationModel
+    from layout_store import default_layout_path, load_layout, save_layout
 
 try:
     # PetWindow 的基类。headless 模式没有 PySide6 时退化为 object，
@@ -43,10 +45,6 @@ STATES = {"IDLE", "THINKING", "WORKING", "WAITING", "SUCCESS", "ERROR", "DISCONN
 
 # 气泡底部与角色顶部的间距（px）。
 BUBBLE_GAP = 8
-
-# 空闲呼吸参数：幅度（比例，±1%）与周期（秒，约 3.5s 一次）。
-BREATHE_AMPLITUDE = 0.01
-BREATHE_PERIOD_SEC = 3.5
 
 
 def bundle_root() -> Path:
@@ -146,7 +144,7 @@ class PetWindow(QWidget):
         super().__init__()
         # PetWindow 只在 visual 模式使用；导入放在这里，保持 headless
         # 模式不依赖 PySide6。
-        from PySide6.QtCore import Qt, QTimer
+        from PySide6.QtCore import QPoint, Qt, QTimer
         from PySide6.QtGui import QAction, QPixmap
         from PySide6.QtWidgets import QApplication, QLabel, QMenu
 
@@ -156,6 +154,7 @@ class PetWindow(QWidget):
         self.QApplication = QApplication
         self.QMenu = QMenu
         self.QAction = QAction
+        self.QPoint = QPoint
 
         self.model = model
         self.asset_root = asset_root
@@ -172,6 +171,10 @@ class PetWindow(QWidget):
         self.setWindowFlags(self._flags_for(config["locked"]))
         self.setAttribute(self.Qt.WA_TranslucentBackground)
         self.setFixedSize(self.BASE_W, self.BASE_H)
+
+        # 位置持久化：重启 DSH 后恢复到上次拖拽的位置。
+        self.layout_path = default_layout_path()
+        self._restore_position()
 
         self.pet = QLabel(self)
         self.bubble = QLabel(self)
@@ -206,6 +209,56 @@ class PetWindow(QWidget):
             # 点击穿透：锁定后窗口不拦截任何鼠标事件（类似锁定的悬浮歌词）。
             flags |= self.Qt.WindowTransparentForInput
         return flags
+
+    # ---- 位置持久化 / 全桌面 ------------------------------------------
+    def _restore_position(self) -> None:
+        layout = load_layout(self.layout_path)
+        if layout["x"] is None or layout["y"] is None:
+            # 首次运行：屏幕底部中央。
+            screen = self.QApplication.primaryScreen()
+            if screen is not None:
+                geo = screen.availableGeometry()
+                self.move(
+                    geo.x() + (geo.width() - self.BASE_W) // 2,
+                    geo.bottom() - self.BASE_H - 40,
+                )
+            return
+        self.move(layout["x"], layout["y"])
+        self._clamp_to_screen()
+
+    def _clamp_to_screen(self) -> None:
+        """窗口至少保留一角可见（分辨率/多屏变化后不丢失窗口）。"""
+        center = self.pos() + self.QPoint(self.BASE_W // 2, self.BASE_H // 2)
+        screen = self.QApplication.screenAt(center) or self.QApplication.primaryScreen()
+        if screen is None:
+            return
+        geo = screen.availableGeometry()
+        x = min(max(self.x(), geo.x() - self.BASE_W + 80), geo.right() - 80)
+        y = min(max(self.y(), geo.y()), geo.bottom() - 40)
+        self.move(x, y)
+
+    def _persist_position(self) -> None:
+        try:
+            save_layout(self.layout_path, self.x(), self.y())
+        except OSError:
+            pass
+
+    def _enable_all_spaces(self) -> None:
+        """macOS：让窗口在所有桌面（Spaces）显示，切换桌面也保持可见。
+
+        通过 pyobjc 设置 NSWindow collectionBehavior 的 CanJoinAllSpaces；
+        pyobjc 缺失或非 macOS 时静默降级（仅当前桌面显示）。
+        """
+        try:
+            import objc
+            from AppKit import NSWindowCollectionBehaviorCanJoinAllSpaces
+            nsview = objc.objc_object(c_void_p=self.winId())
+            nswindow = nsview.window()
+            nswindow.setCollectionBehavior_(
+                nswindow.collectionBehavior() | NSWindowCollectionBehaviorCanJoinAllSpaces
+            )
+        except Exception:
+            pass
 
     # ---- 消息处理 -------------------------------------------------
     def _poll_inbox(self) -> None:
@@ -317,12 +370,8 @@ class PetWindow(QWidget):
         if self.config["reduced_motion"]:
             motion = None
         phase = (self._clock_ms % 1000) / 1000.0
-        phase_sec = self._clock_ms / 1000.0
         dx = dy = 0.0
-        if motion == "breathe":
-            # 缓慢呼吸：±1% 缩放，约 3.5s 一个周期（原实现 1s 太快、2% 太明显）。
-            scale *= 1.0 + BREATHE_AMPLITUDE * math.sin(phase_sec * (math.tau / BREATHE_PERIOD_SEC))
-        elif motion == "bounce":
+        if motion == "bounce":
             dy = -14 * abs(math.sin(phase * math.tau))
         elif motion == "shake":
             dx = 5 * math.sin(phase * math.tau * 2)
@@ -388,6 +437,7 @@ class PetWindow(QWidget):
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802
         self._drag_offset = None
+        self._persist_position()
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802
         if self.config["locked"]:
@@ -436,6 +486,7 @@ def run_visual(recorder: EventRecorder) -> int:
     app = QApplication(sys.argv)
     window = PetWindow(model, asset_root, inbox, config)
     window.show()
+    window._enable_all_spaces()
 
     def reader() -> None:
         try:
