@@ -4,6 +4,10 @@
 > 没有本对话的历史——先读本文件与下列关键文件，即可快速恢复全部上下文。
 >
 > 本文件本身也是为 AI 写的：请完整读完再开始工作。
+>
+> **隐私约定（重要）**：本仓库在 GitHub 上是**公开**的。文中所有路径一律用
+> `$HOME` 相对形式或仓库内相对路径，**禁止**写入本机绝对路径（如
+> `/Users/<用户名>/...`）或个人用户名。
 
 ## 一、直接粘贴的启动提示
 
@@ -11,7 +15,7 @@
 
 ---
 
-请先读取 `~/project/deepseek-plugin` 仓库并恢复上下文：
+请先读取本仓库（当前工作目录，用 `pwd` 确认）并恢复上下文：
 
 1. 依次读：`SESSION_START.md`（本文件）、`DECISIONS.md`、`README.md`、
    `plugins.json`、`plugins.schema.json`、`bundles/README.md`
@@ -51,9 +55,10 @@
 
 ## 五、本机开发环境（macOS）
 
-- **工作区**：`~/project/deepseek-plugin`（git，origin 已指向 GitHub）
-- **DSH 源码**：`~/project/deepseek/deepseek-harness`；
-  源码跑 CLI 用 `pnpm dsh`（需在该目录执行，PATH 需含 `/opt/homebrew/bin`）
+- **工作区**：本仓库（`pwd` 定位；git，origin 已指向 GitHub）
+- **DSH 源码**：`$HOME/project/deepseek/deepseek-harness`（如位置不符，
+  以当前环境为准）；源码跑 CLI 用 `pnpm dsh`（需在该目录执行，
+  PATH 需含 `/opt/homebrew/bin`）
 - **本机 profile**：`web`（`~/.dsh/profiles/web`）
   - profile 的 bundle 列表在 `package.json` 的 `dsh.profile.bundles`
   - 用户层覆盖在 `cordis.patch.yml`（当前为 dsh-dafeiyu-mac 配置
@@ -66,14 +71,14 @@
 
 ```sh
 # bundle 目录内的 JS 测试（dsh-dafeiyu-mac 有 14 个）
-cd ~/project/deepseek-plugin/bundles/<name>
+cd bundles/<name>
 node --test --test-timeout=15000 test/*.test.js
 
 # Python helper 协议模式（无需 Qt）
 python3 runtime/helper.py --headless
 
 # 配置组合验证（在 DSH 源码目录）
-cd ~/project/deepseek/deepseek-harness
+cd "$HOME/project/deepseek/deepseek-harness"
 pnpm dsh --profile web --dump-config
 
 # 安装/卸载 bundle 到 profile
@@ -101,5 +106,5 @@ pnpm dsh plugin --profile web remove <包名>
 - 单插件获取（他人视角）：零 clone 安装 `dsh plugin add "Siq5005/dsh-plugins#path:/bundles/<name>"`、
   稀疏克隆 `git clone --filter=blob:none --sparse` + `git sparse-checkout set ...`、
   download-directory.github.io
-- DSH 插件教程（源码内）：`~/project/deepseek/deepseek-harness/docs/user/develop/basic/`
+- DSH 插件教程（源码内）：`$HOME/project/deepseek/deepseek-harness/docs/user/develop/basic/`
   （index = 第一个插件，publish = 打包与安装）
