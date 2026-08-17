@@ -32,6 +32,7 @@ export const Config = Schema.object({
   ]).default('normal').description('空闲微动作频率'),
   reducedMotion: Schema.boolean().default(false).description('减少走动、循环帧和程序化晃动'),
   includeSubagents: Schema.boolean().default(false).description('允许子 Agent 抢占宠物状态'),
+  locked: Schema.boolean().default(false).description('锁定窗口：点击穿透，不拦截桌面操作'),
 }).description('由 DeepSeek Harness 状态驱动的桌面大肥鱼伴侣（macOS 复刻版）')
 
 const defaults = Object.freeze({
@@ -41,6 +42,7 @@ const defaults = Object.freeze({
   activityLevel: 'normal',
   reducedMotion: false,
   includeSubagents: false,
+  locked: false,
 })
 
 function publicConfig(config = {}) {
@@ -51,6 +53,7 @@ function publicConfig(config = {}) {
     activityLevel: config.activityLevel ?? defaults.activityLevel,
     reducedMotion: config.reducedMotion ?? defaults.reducedMotion,
     includeSubagents: config.includeSubagents ?? defaults.includeSubagents,
+    locked: config.locked ?? defaults.locked,
   }
 }
 
@@ -152,6 +155,7 @@ function mount(ctx, config = {}, eventCtx = ctx) {
       bubbleScale: next.bubbleScale ?? defaults.bubbleScale,
       activityLevel: next.activityLevel ?? defaults.activityLevel,
       reducedMotion: next.reducedMotion === true,
+      locked: next.locked === true,
     }))
   }
 
@@ -178,6 +182,7 @@ function mount(ctx, config = {}, eventCtx = ctx) {
         DSH_DAFEIYU_BUBBLE_SCALE: String(resolved.bubbleScale ?? defaults.bubbleScale),
         DSH_DAFEIYU_ACTIVITY_LEVEL: String(resolved.activityLevel ?? defaults.activityLevel),
         DSH_DAFEIYU_REDUCED_MOTION: resolved.reducedMotion === true ? '1' : '0',
+        DSH_DAFEIYU_LOCKED: resolved.locked === true ? '1' : '0',
       },
     }, logger)
     reducer = new CompanionReducer({ includeSubagents: resolved.includeSubagents === true })

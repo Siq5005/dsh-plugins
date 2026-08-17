@@ -132,6 +132,12 @@ window.__ModuleLoader__.load({ id: 'dsh-dafeiyu-mac', factory: (require) => {
               onChange: (event) => void write('includeSubagents', event.target.checked),
             }),
           ),
+          React.createElement(Field, { label: '锁定窗口', hint: '点击穿透不拦截桌面操作（解锁需回到本设置页）。' },
+            React.createElement('input', {
+              type: 'checkbox', checked: value.locked === true, disabled: !writable,
+              onChange: (event) => void write('locked', event.target.checked),
+            }),
+          ),
           busy ? React.createElement('small', { role: 'status' }, '正在保存…') : null,
         ),
     )

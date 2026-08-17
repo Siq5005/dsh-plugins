@@ -7,3 +7,4 @@
         activityLevel: normal
         reducedMotion: false
         includeSubagents: false
+        locked: false

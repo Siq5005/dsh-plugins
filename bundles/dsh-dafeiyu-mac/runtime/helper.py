@@ -6,6 +6,10 @@ independent desktop application.
 
 Visual mode renders a frameless, always-on-top, transparent pet window with a
 state bubble; headless mode only exercises the JSONL protocol (no Qt needed).
+
+Locked mode (config["locked"]) makes the window click-through
+(Qt.WindowTransparentForInput) so the pet never blocks desktop interaction,
+like a locked floating lyrics window.
 """
 
 from __future__ import annotations
@@ -27,8 +31,18 @@ try:
 except ImportError:
     from animation_model import AnimationModel
 
+try:
+    # PetWindow 的基类。headless 模式没有 PySide6 时退化为 object，
+    # PetWindow 只在 visual 模式（run_visual）里实例化。
+    from PySide6.QtWidgets import QWidget
+except ImportError:
+    QWidget = object  # type: ignore[misc,assignment]
+
 PROTOCOL_VERSION = 1
 STATES = {"IDLE", "THINKING", "WORKING", "WAITING", "SUCCESS", "ERROR", "DISCONNECTED"}
+
+# 气泡底部与角色顶部的间距（px）。
+BUBBLE_GAP = 8
 
 
 def bundle_root() -> Path:
@@ -67,6 +81,10 @@ def emit_reply(kind: str, **payload: Any) -> None:
         ),
         flush=True,
     )
+
+
+def esc(text: Any) -> str:
+    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 class EventRecorder:
@@ -110,11 +128,264 @@ def run_headless(recorder: EventRecorder) -> int:
     return 0
 
 
+class PetWindow(QWidget):
+    """Frameless always-on-top pet window: character frame + state bubble.
+
+    `config` is a shared mutable dict (scale / bubble_scale / activity_level /
+    reduced_motion / locked), updated by CONFIG messages from the DSH host.
+    """
+
+    BASE_W, BASE_H = 300, 330
+    PET_W, PET_H = 238, 238
+
+    def __init__(self, model: AnimationModel, asset_root: Path, inbox: "queue.Queue[dict[str, Any]]", config: dict[str, Any]) -> None:
+        super().__init__()
+        # PetWindow 只在 visual 模式使用；导入放在这里，保持 headless
+        # 模式不依赖 PySide6。
+        from PySide6.QtCore import Qt, QTimer
+        from PySide6.QtGui import QAction, QPixmap
+        from PySide6.QtWidgets import QApplication, QLabel, QMenu
+
+        self.Qt = Qt
+        self.QTimer = QTimer
+        self.QPixmap = QPixmap
+        self.QApplication = QApplication
+        self.QMenu = QMenu
+        self.QAction = QAction
+
+        self.model = model
+        self.asset_root = asset_root
+        self.inbox = inbox
+        self.config = config
+        self._pixmaps: dict[str, Any] = {}
+        self._drag_offset: Any = None
+        self._clock_ms = 0
+        self._micro_timer: Any = None
+        self._pulse_until_ms = 0
+        self._pulse_resume: tuple[str, str | None] | None = None
+        self._pet_rect: tuple[int, int, int, int] | None = None
+
+        self.setWindowFlags(self._flags_for(config["locked"]))
+        self.setAttribute(self.Qt.WA_TranslucentBackground)
+        self.setFixedSize(self.BASE_W, self.BASE_H)
+
+        self.pet = QLabel(self)
+        self.bubble = QLabel(self)
+        self.bubble.setWordWrap(True)
+        self.bubble.setAlignment(self.Qt.AlignCenter)
+        self.bubble.setStyleSheet(
+            "QLabel { background: rgba(20, 20, 30, 210); color: white;"
+            " border-radius: 12px; padding: 8px 10px; }"
+        )
+        self.bubble.hide()
+
+        self.lock_badge = QLabel("🔒", self)
+        self.lock_badge.setStyleSheet(
+            "background: rgba(20, 20, 30, 180); color: white; border-radius: 8px;"
+            " padding: 2px 6px; font-size: 11px;"
+        )
+        self.lock_badge.adjustSize()
+        self.lock_badge.move(self.width() - self.lock_badge.width() - 6, 6)
+        self.lock_badge.setVisible(config["locked"])
+
+        self.anim_timer = QTimer(self)
+        self.anim_timer.timeout.connect(self._on_anim_tick)
+        self.anim_timer.start(33)
+        self.poll_timer = QTimer(self)
+        self.poll_timer.timeout.connect(self._poll_inbox)
+        self.poll_timer.start(16)
+        self._schedule_idle_micro()
+
+    def _flags_for(self, locked: bool) -> Any:
+        flags = self.Qt.FramelessWindowHint | self.Qt.WindowStaysOnTopHint
+        if locked:
+            # 点击穿透：锁定后窗口不拦截任何鼠标事件（类似锁定的悬浮歌词）。
+            flags |= self.Qt.WindowTransparentForInput
+        return flags
+
+    # ---- 消息处理 -------------------------------------------------
+    def _poll_inbox(self) -> None:
+        while True:
+            try:
+                message = self.inbox.get_nowait()
+            except queue.Empty:
+                break
+            self._handle(message)
+
+    def _handle(self, message: dict[str, Any]) -> None:
+        kind = message.get("kind")
+        if kind == "state":
+            self.model.apply_state(message.get("state", "IDLE"), message.get("activity"))
+            self._pulse_until_ms = 0
+            self._set_bubble(message)
+        elif kind == "pulse":
+            self.model.apply_state(message.get("state", "IDLE"), message.get("resumeActivity"))
+            self._pulse_until_ms = time.monotonic() * 1000 + int(message.get("ttlMs", 1500))
+            self._pulse_resume = (message.get("resumeState", "IDLE"), message.get("resumeActivity"))
+            self._set_bubble(message)
+        elif kind == "task":
+            self._set_bubble(message)
+        elif kind == "config":
+            self.config["scale"] = float(message.get("scale", self.config["scale"]))
+            self.config["bubble_scale"] = float(message.get("bubbleScale", self.config["bubble_scale"]))
+            self.config["activity_level"] = str(message.get("activityLevel", self.config["activity_level"]))
+            self.config["reduced_motion"] = bool(message.get("reducedMotion", self.config["reduced_motion"]))
+            locked = bool(message.get("locked", self.config["locked"]))
+            if locked != self.config["locked"]:
+                self.config["locked"] = locked
+                self._apply_lock()
+            self._schedule_idle_micro()
+        elif kind == "ping":
+            emit_reply("pong")
+        elif kind == "shutdown":
+            self.QApplication.quit()
+
+    def _set_bubble(self, message: dict[str, Any]) -> None:
+        text = message.get("message") or ""
+        detail = message.get("detail") or ""
+        if not text and not detail:
+            self.bubble.hide()
+            return
+        size = int(13 * self.config["bubble_scale"])
+        parts = [f'<div style="font-size:{size + 2}px; font-weight:600;">{esc(text)}</div>']
+        if detail:
+            parts.append(f'<div style="font-size:{size - 1}px; opacity:0.8; margin-top:3px;">{esc(detail)}</div>')
+        self.bubble.setText("".join(parts))
+        self.bubble.adjustSize()
+        self.bubble.setMaximumWidth(self.width() - 24)
+        self._layout_bubble()
+
+    def _layout_bubble(self) -> None:
+        bw = self.bubble.width()
+        bh = self.bubble.height()
+        rect = self._pet_rect
+        if rect is None:
+            # 角色还没渲染出来时退化为窗口顶部。
+            self.bubble.move((self.width() - bw) // 2, 8)
+        else:
+            px, py, sw, _sh = rect
+            cx = px + sw // 2
+            x = max(4, min(cx - bw // 2, self.width() - bw - 4))
+            y = max(2, py - bh - BUBBLE_GAP)
+            self.bubble.move(x, y)
+        self.bubble.show()
+
+    # ---- 动画 -----------------------------------------------------
+    def _on_anim_tick(self) -> None:
+        now = time.monotonic() * 1000
+        delta = now - self._clock_ms
+        self._clock_ms = now
+        self.model.tick(max(1, min(int(delta), 200)))
+        self._render_pet()
+        # 动画位移会让角色移动，气泡保持贴在其上方。
+        if self.bubble.isVisible():
+            self._layout_bubble()
+
+    def _render_pet(self) -> None:
+        frame_path = self.model.frame
+        pixmap = self._pixmaps.get(frame_path)
+        if pixmap is None:
+            pixmap = self.QPixmap(str(self.asset_root / frame_path))
+            self._pixmaps[frame_path] = pixmap
+        if pixmap.isNull():
+            return
+
+        motion = self.model.motion
+        scale = self.config["scale"]
+        if self.config["reduced_motion"]:
+            motion = None
+        phase = (self._clock_ms % 1000) / 1000.0
+        dx = dy = 0.0
+        if motion == "breathe":
+            scale *= 1.0 + 0.02 * math.sin(phase * math.tau)
+        elif motion == "bounce":
+            dy = -14 * abs(math.sin(phase * math.tau))
+        elif motion == "shake":
+            dx = 5 * math.sin(phase * math.tau * 2)
+        elif motion == "dizzy":
+            dx = 3 * math.sin(phase * math.tau * 3)
+
+        w = max(1, int(self.PET_W * scale))
+        h = max(1, int(self.PET_H * scale))
+        scaled = pixmap.scaled(w, h, self.Qt.KeepAspectRatio, self.Qt.SmoothTransformation)
+        # setPixmap 只更新 sizeHint，QLabel 不会自动调整自身尺寸；
+        # 不 adjustSize 会把角色裁在默认 100x30 的框里。
+        self.pet.setPixmap(scaled)
+        self.pet.adjustSize()
+        sw, sh = scaled.width(), scaled.height()
+
+        # 窗口高度动态适配：足够容纳鱼 + 气泡，避免放大时气泡被挤出窗口。
+        need = sh + 12
+        if self.bubble.isVisible():
+            need += self.bubble.height() + BUBBLE_GAP + 6
+        target = max(self.BASE_H, int(need))
+        if target != self.height():
+            self.setFixedSize(self.BASE_W, target)
+
+        px = int((self.width() - sw) / 2 + dx)
+        py = int(self.height() - sh - 12 + dy)
+        self.pet.move(px, py)
+        self._pet_rect = (px, py, sw, sh)
+
+    # ---- 空闲微动画 ------------------------------------------------
+    def _schedule_idle_micro(self) -> None:
+        if self._micro_timer is not None:
+            self._micro_timer.stop()
+        if self.config["reduced_motion"] or not self.model.idle_micro_clips:
+            return
+        interval = {"quiet": 9000, "normal": 5200, "lively": 2800}[self.config["activity_level"]]
+        self._micro_timer = self.QTimer(self)
+        self._micro_timer.setSingleShot(True)
+        self._micro_timer.timeout.connect(self._play_idle_micro)
+        self._micro_timer.start(interval + random.randint(0, 2500))
+
+    def _play_idle_micro(self) -> None:
+        if self.model.base_state == "IDLE" and not self.model.overlay_clip_name:
+            self.model.play_overlay(random.choice(self.model.idle_micro_clips))
+        self._schedule_idle_micro()
+
+    # ---- 锁定 / 拖拽 / 右键 ------------------------------------------
+    def _apply_lock(self) -> None:
+        self.setWindowFlags(self._flags_for(self.config["locked"]))
+        self.setAttribute(self.Qt.WA_TranslucentBackground)
+        self.show()
+        self.lock_badge.setVisible(self.config["locked"])
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if self.config["locked"]:
+            return
+        if event.button() == self.Qt.LeftButton:
+            self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self.config["locked"] or self._drag_offset is None:
+            return
+        self.move(event.globalPosition().toPoint() - self._drag_offset)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        self._drag_offset = None
+
+    def contextMenuEvent(self, event) -> None:  # noqa: N802
+        if self.config["locked"]:
+            return
+        menu = self.QMenu(self)
+        quit_action = self.QAction("退出大肥鱼", self)
+        quit_action.triggered.connect(self._quit)
+        menu.addAction(quit_action)
+        menu.exec(event.globalPos())
+
+    def _quit(self) -> None:
+        emit_reply("closed")
+        self.QApplication.quit()
+
+    def closeEvent(self, event) -> None:  # noqa: N802
+        self.QApplication.quit()
+
+
 def run_visual(recorder: EventRecorder) -> int:
     try:
-        from PySide6.QtCore import QPoint, Qt, QTimer
-        from PySide6.QtGui import QAction, QColor, QFont, QPainter, QPixmap
-        from PySide6.QtWidgets import QApplication, QLabel, QMenu, QVBoxLayout, QWidget
+        from PySide6.QtCore import Qt  # noqa: F401  (window flags inside PetWindow)
+        from PySide6.QtWidgets import QApplication
     except ImportError:
         print("PySide6 is required for visual mode. Run with --headless for protocol tests.", file=sys.stderr)
         return 2
@@ -135,191 +406,11 @@ def run_visual(recorder: EventRecorder) -> int:
         "bubble_scale": env_float("DSH_DAFEIYU_BUBBLE_SCALE", 1.0),
         "activity_level": os.environ.get("DSH_DAFEIYU_ACTIVITY_LEVEL", "normal"),
         "reduced_motion": os.environ.get("DSH_DAFEIYU_REDUCED_MOTION", "0") == "1",
+        "locked": os.environ.get("DSH_DAFEIYU_LOCKED", "0") == "1",
     }
 
-    class PetWindow(QWidget):
-        BASE_W, BASE_H = 300, 330
-        PET_W, PET_H = 238, 238
-
-        def __init__(self) -> None:
-            super().__init__()
-            self._pixmaps: dict[str, QPixmap] = {}
-            self._drag_offset: QPoint | None = None
-            self._clock_ms = 0
-            self._micro_timer: QTimer | None = None
-            self._pulse_until_ms = 0
-            self._pulse_resume: tuple[str, str | None] | None = None
-
-            self.setWindowFlags(
-                # 与上游一致：不加 WindowDoesNotAcceptFocus，避免 macOS 上
-                # 无焦点窗口收不到鼠标事件导致无法拖动。
-                Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-            )
-            self.setAttribute(Qt.WA_TranslucentBackground)
-            self.setFixedSize(self.BASE_W, self.BASE_H)
-
-            self.pet = QLabel(self)
-            self.bubble = QLabel(self)
-            self.bubble.setWordWrap(True)
-            self.bubble.setAlignment(Qt.AlignCenter)
-            self.bubble.setStyleSheet(
-                "QLabel { background: rgba(20, 20, 30, 210); color: white;"
-                " border-radius: 12px; padding: 8px 10px; }"
-            )
-            self.bubble.hide()
-
-            self.anim_timer = QTimer(self)
-            self.anim_timer.timeout.connect(self._on_anim_tick)
-            self.anim_timer.start(33)
-            self.poll_timer = QTimer(self)
-            self.poll_timer.timeout.connect(self._poll_inbox)
-            self.poll_timer.start(16)
-            self._schedule_idle_micro()
-
-        # ---- 消息处理 -------------------------------------------------
-        def _poll_inbox(self) -> None:
-            while True:
-                try:
-                    message = inbox.get_nowait()
-                except queue.Empty:
-                    break
-                self._handle(message)
-
-        def _handle(self, message: dict[str, Any]) -> None:
-            kind = message.get("kind")
-            if kind == "state":
-                model.apply_state(message.get("state", "IDLE"), message.get("activity"))
-                self._pulse_until_ms = 0
-                self._set_bubble(message)
-            elif kind == "pulse":
-                model.apply_state(message.get("state", "IDLE"), message.get("resumeActivity"))
-                self._pulse_until_ms = time.monotonic() * 1000 + int(message.get("ttlMs", 1500))
-                self._pulse_resume = (message.get("resumeState", "IDLE"), message.get("resumeActivity"))
-                self._set_bubble(message)
-            elif kind == "task":
-                self._set_bubble(message)
-            elif kind == "config":
-                config["scale"] = float(message.get("scale", config["scale"]))
-                config["bubble_scale"] = float(message.get("bubbleScale", config["bubble_scale"]))
-                config["activity_level"] = str(message.get("activityLevel", config["activity_level"]))
-                config["reduced_motion"] = bool(message.get("reducedMotion", config["reduced_motion"]))
-                self._schedule_idle_micro()
-            elif kind == "ping":
-                emit_reply("pong")
-            elif kind == "shutdown":
-                QApplication.quit()
-
-        def _set_bubble(self, message: dict[str, Any]) -> None:
-            text = message.get("message") or ""
-            detail = message.get("detail") or ""
-            if not text and not detail:
-                self.bubble.hide()
-                return
-            size = int(13 * config["bubble_scale"])
-            parts = [f'<div style="font-size:{size + 2}px; font-weight:600;">{_esc(text)}</div>']
-            if detail:
-                parts.append(f'<div style="font-size:{size - 1}px; opacity:0.8; margin-top:3px;">{_esc(detail)}</div>')
-            self.bubble.setText("".join(parts))
-            self.bubble.adjustSize()
-            self.bubble.setMaximumWidth(self.width() - 24)
-            self._layout_bubble()
-
-        def _layout_bubble(self) -> None:
-            bw = self.bubble.width()
-            bh = self.bubble.height()
-            self.bubble.move((self.width() - bw) // 2, 8)
-            self.bubble.show()
-
-        # ---- 动画 -----------------------------------------------------
-        def _on_anim_tick(self) -> None:
-            now = time.monotonic() * 1000
-            delta = now - self._clock_ms
-            self._clock_ms = now
-            model.tick(max(1, min(int(delta), 200)))
-            self._render_pet()
-
-        def _render_pet(self) -> None:
-            frame_path = model.frame
-            pixmap = self._pixmaps.get(frame_path)
-            if pixmap is None:
-                pixmap = QPixmap(str(asset_root / frame_path))
-                self._pixmaps[frame_path] = pixmap
-            if pixmap.isNull():
-                return
-
-            motion = model.motion
-            scale = config["scale"]
-            if config["reduced_motion"]:
-                motion = None
-            phase = (self._clock_ms % 1000) / 1000.0
-            dx = dy = 0.0
-            if motion == "breathe":
-                scale *= 1.0 + 0.02 * math.sin(phase * math.tau)
-            elif motion == "bounce":
-                dy = -14 * abs(math.sin(phase * math.tau))
-            elif motion == "shake":
-                dx = 5 * math.sin(phase * math.tau * 2)
-            elif motion == "dizzy":
-                dx = 3 * math.sin(phase * math.tau * 3)
-
-            w = max(1, int(self.PET_W * scale))
-            h = max(1, int(self.PET_H * scale))
-            scaled = pixmap.scaled(w, h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            # setPixmap 只更新 sizeHint，QLabel 不会自动调整自身尺寸；
-            # 不 adjustSize 会把角色裁在默认 100x30 的框里。
-            self.pet.setPixmap(scaled)
-            self.pet.adjustSize()
-            sw, sh = scaled.width(), scaled.height()
-            self.pet.move(int((self.width() - sw) / 2 + dx), int(self.height() - sh - 12 + dy))
-
-        # ---- 空闲微动画 ------------------------------------------------
-        def _schedule_idle_micro(self) -> None:
-            if self._micro_timer is not None:
-                self._micro_timer.stop()
-            if config["reduced_motion"] or not model.idle_micro_clips:
-                return
-            interval = {"quiet": 9000, "normal": 5200, "lively": 2800}[config["activity_level"]]
-            self._micro_timer = QTimer(self)
-            self._micro_timer.setSingleShot(True)
-            self._micro_timer.timeout.connect(self._play_idle_micro)
-            self._micro_timer.start(interval + random.randint(0, 2500))
-
-        def _play_idle_micro(self) -> None:
-            if model.base_state == "IDLE" and not model.overlay_clip_name:
-                model.play_overlay(random.choice(model.idle_micro_clips))
-            self._schedule_idle_micro()
-
-        # ---- 拖拽 / 右键 ------------------------------------------------
-        def mousePressEvent(self, event) -> None:  # noqa: N802
-            if event.button() == Qt.LeftButton:
-                self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-
-        def mouseMoveEvent(self, event) -> None:  # noqa: N802
-            if self._drag_offset is not None:
-                self.move(event.globalPosition().toPoint() - self._drag_offset)
-
-        def mouseReleaseEvent(self, event) -> None:  # noqa: N802
-            self._drag_offset = None
-
-        def contextMenuEvent(self, event) -> None:  # noqa: N802
-            menu = QMenu(self)
-            quit_action = QAction("退出大肥鱼", self)
-            quit_action.triggered.connect(self._quit)
-            menu.addAction(quit_action)
-            menu.exec(event.globalPos())
-
-        def _quit(self) -> None:
-            emit_reply("closed")
-            QApplication.quit()
-
-        def closeEvent(self, event) -> None:  # noqa: N802
-            QApplication.quit()
-
-    def _esc(text: Any) -> str:
-        return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
     app = QApplication(sys.argv)
-    window = PetWindow()
+    window = PetWindow(model, asset_root, inbox, config)
     window.show()
 
     def reader() -> None:
