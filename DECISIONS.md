@@ -72,7 +72,12 @@
   - 素材：沿用上游 `assets/pet/` PNG，许可状态与上游一致（**不在 MIT 内**，见 bundle 内 `ASSET_LICENSE.md`）；代码为自写复刻实现（结构参考上游，MIT）。
   - 实现：`bundles/dsh-dafeiyu-mac/`，三层架构——DSH JS 插件（Schema/settings/事件监听/reducer/helper 进程管理/协议）+ Python PySide6 渲染 + WebUI 设置卡片。
   - 验证：Node 测试 14/14 通过（含模拟 DSH ctx 冒烟测试与 headless 集成）；PySide6 可视化冒烟通过。
-- **遗留**：未打包 helper 单文件（依赖本机 Python + PySide6）；未实现走动/互动动画与布局持久化。
+- **后续迭代（2026-08-17，同一天内完成）**：
+  - 修复：角色未渲染（QLabel `adjustSize`）、无法拖动（去掉 `WindowDoesNotAcceptFocus`）、完成/出错动画无限循环（PULSE TTL 过期回落）。
+  - 功能：气泡跟随角色缩放并自适应窗口高度；锁定模式（点击穿透，类似悬浮歌词）；记住窗口位置（`runtime/layout_store.py`，重启恢复 + 屏幕 clamp）；macOS 全桌面显示（NSWindow `CanJoinAllSpaces`）；隐藏 Dock 图标（accessory 激活策略）；移除空闲呼吸。
+- **遗留（2026-08-17 更新）**：
+  - ✅ 已清零：布局持久化、气泡跟随、锁定、全桌面、隐藏 Dock、动画回落（见上）。
+  - ⏳ 仍遗留：**未打包 helper 单文件**（仍依赖本机 Python + venv：PySide6 + pyobjc，他人安装需自备环境）；**未实现走动动画与摸头/戳等轻互动**（素材齐备，动画逻辑未做）。
 - **注意**：本插件素材版权风险与上游相同，仅作学习复刻用途。
 
 ## D-005 第二个实际插件：dsh-deepseek-cost（对话费用统计）
