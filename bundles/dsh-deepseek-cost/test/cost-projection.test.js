@@ -1,7 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createTokenCostProjection, tokenCostSchema } from '../src/cost-projection.js'
-import { DEFAULT_PRICES } from '../src/pricing.js'
 
 // 北京时间某时刻（北京 = UTC+8）。
 function beijingTime(hour, minute = 0) {
@@ -28,7 +27,7 @@ function assistantMessage({ turn, step, model, usage, time = beijingTime(10) }) 
   }
 }
 
-const FLASH_PEAK = DEFAULT_PRICES['deepseek-v4-flash'].peak
+const emptyBucket = { uncachedInputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0 }
 
 test('init 状态为纯 JSON，空日志 view 全零', () => {
   const projection = createTokenCostProjection()
@@ -37,11 +36,11 @@ test('init 状态为纯 JSON，空日志 view 全零', () => {
   // 纯 JSON：可被 structuredClone / 持久化缓存。
   assert.deepEqual(JSON.parse(JSON.stringify(state)), state)
   const value = projection.view(state)
-  assert.deepEqual(value, { totalCostCny: 0, lastTier: 'offpeak', models: [] })
+  assert.deepEqual(value, { models: [], lastTier: 'offpeak' })
   tokenCostSchema.parse(value) // wire schema 校验通过
 })
 
-test('无关事件与无 usage 事件返回同一引用', () => {
+test('无关事件与无 usage / 无 model 事件返回同一引用', () => {
   const projection = createTokenCostProjection()
   let state = projection.init()
   const unrelated = { type: 'user/message', seq: 1, time: 0, data: {} }
@@ -52,7 +51,7 @@ test('无关事件与无 usage 事件返回同一引用', () => {
   assert.equal(projection.apply(state, noModel), state)
 })
 
-test('单模型按官方高峰价累计费用', () => {
+test('单模型：高峰时段请求计入 peak 桶', () => {
   const projection = createTokenCostProjection()
   let state = projection.init()
   state = projection.apply(state, assistantMessage({
@@ -65,39 +64,55 @@ test('单模型按官方高峰价累计费用', () => {
   assert.equal(value.models.length, 1)
   const row = value.models[0]
   assert.equal(row.model, 'deepseek-v4-flash')
-  assert.equal(row.uncachedInputTokens, 100_000)
-  assert.equal(row.cacheReadTokens, 400_000)
-  assert.equal(row.outputTokens, 50_000)
-  const expected = 100_000 * FLASH_PEAK.cacheMiss / 1e6
-    + 400_000 * FLASH_PEAK.cacheHit / 1e6
-    + 50_000 * FLASH_PEAK.output / 1e6
-  assert.ok(Math.abs(row.costCny - expected) < 1e-9)
-  assert.ok(Math.abs(value.totalCostCny - expected) < 1e-9)
+  assert.deepEqual(row.peak, {
+    uncachedInputTokens: 100_000,
+    cacheReadTokens: 400_000,
+    cacheWriteTokens: 0,
+    outputTokens: 50_000,
+  })
+  assert.deepEqual(row.offpeak, emptyBucket)
 })
 
-test('多模型独立累计，view 按费用降序', () => {
+test('同一模型跨时段：peak 与 offpeak 各自累计', () => {
   const projection = createTokenCostProjection()
   let state = projection.init()
   state = projection.apply(state, assistantMessage({
     turn: 1, step: 0, model: 'deepseek-v4-flash',
-    usage: { inputTokens: 10_000, outputTokens: 5_000 },
+    usage: { inputTokens: 1000, outputTokens: 500 },
     time: beijingTime(10),
   }))
   state = projection.apply(state, assistantMessage({
-    turn: 1, step: 1, model: 'deepseek-v4-pro',
+    turn: 2, step: 0, model: 'deepseek-v4-flash',
+    usage: { inputTokens: 2000, outputTokens: 700 },
+    time: beijingTime(0), // 空闲
+  }))
+  const value = projection.view(state)
+  const row = value.models[0]
+  assert.deepEqual(row.peak, { uncachedInputTokens: 1000, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 500 })
+  assert.deepEqual(row.offpeak, { uncachedInputTokens: 2000, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 700 })
+  assert.equal(value.lastTier, 'offpeak')
+  tokenCostSchema.parse(value)
+})
+
+test('多模型独立累计，view 按模型 id 排序', () => {
+  const projection = createTokenCostProjection()
+  let state = projection.init()
+  state = projection.apply(state, assistantMessage({
+    turn: 1, step: 0, model: 'deepseek-v4-pro',
     usage: { inputTokens: 20_000, outputTokens: 30_000 },
+    time: beijingTime(10),
+  }))
+  state = projection.apply(state, assistantMessage({
+    turn: 1, step: 1, model: 'deepseek-v4-flash',
+    usage: { inputTokens: 10_000, outputTokens: 5_000 },
     time: beijingTime(11),
   }))
   const value = projection.view(state)
   assert.equal(value.models.length, 2)
-  // pro 输出贵，费用应排前面。
-  assert.equal(value.models[0].model, 'deepseek-v4-pro')
-  assert.equal(value.models[1].model, 'deepseek-v4-flash')
-  assert.ok(value.models[0].costCny > value.models[1].costCny)
-  tokenCostSchema.parse(value)
+  assert.deepEqual(value.models.map((m) => m.model), ['deepseek-v4-flash', 'deepseek-v4-pro'])
 })
 
-test('同一 (turn, step) 重复上报：替换而非叠加', () => {
+test('同一 (turn, step) 重复上报：替换而非叠加（同时段）', () => {
   const projection = createTokenCostProjection()
   let state = projection.init()
   state = projection.apply(state, assistantMessage({
@@ -112,10 +127,27 @@ test('同一 (turn, step) 重复上报：替换而非叠加', () => {
   }))
   const value = projection.view(state)
   const row = value.models[0]
-  assert.equal(row.uncachedInputTokens, 1200)
-  assert.equal(row.outputTokens, 600)
-  const expected = (1200 * FLASH_PEAK.cacheMiss + 600 * FLASH_PEAK.output) / 1e6
-  assert.ok(Math.abs(value.totalCostCny - expected) < 1e-12)
+  assert.deepEqual(row.peak, { uncachedInputTokens: 1200, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 600 })
+  assert.deepEqual(row.offpeak, emptyBucket)
+})
+
+test('同一 (turn, step) 跨时段替换：旧样本从原时段扣除，新样本进新时段', () => {
+  const projection = createTokenCostProjection()
+  let state = projection.init()
+  state = projection.apply(state, assistantMessage({
+    turn: 3, step: 0, model: 'deepseek-v4-flash',
+    usage: { inputTokens: 1000, outputTokens: 500 },
+    time: beijingTime(10), // 先高峰
+  }))
+  state = projection.apply(state, assistantMessage({
+    turn: 3, step: 0, model: 'deepseek-v4-flash',
+    usage: { inputTokens: 2000, outputTokens: 800 },
+    time: beijingTime(0), // 覆盖为空闲
+  }))
+  const value = projection.view(state)
+  const row = value.models[0]
+  assert.deepEqual(row.peak, emptyBucket) // 高峰样本被替换掉
+  assert.deepEqual(row.offpeak, { uncachedInputTokens: 2000, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 800 })
 })
 
 test('同一 (turn, step) 相同样本：返回同一引用（零下游工作）', () => {
@@ -134,21 +166,7 @@ test('同一 (turn, step) 相同样本：返回同一引用（零下游工作）
   assert.equal(projection.apply(state, again), state)
 })
 
-test('高峰 / 空闲分时计价：同一用量不同时段费用不同', () => {
-  const projection = createTokenCostProjection()
-  const usage = { inputTokens: 1_000_000, outputTokens: 1_000_000 }
-  const peak = projection.view(projection.apply(projection.init(), assistantMessage({
-    turn: 1, step: 0, model: 'deepseek-v4-flash', usage, time: beijingTime(10),
-  })))
-  const offpeak = projection.view(projection.apply(projection.init(), assistantMessage({
-    turn: 1, step: 0, model: 'deepseek-v4-flash', usage, time: beijingTime(0),
-  })))
-  assert.equal(peak.lastTier, 'peak')
-  assert.equal(offpeak.lastTier, 'offpeak')
-  assert.ok(Math.abs(peak.totalCostCny - offpeak.totalCostCny * 2) < 1e-9)
-})
-
-test('未知模型按兜底价计费，仍出现在明细', () => {
+test('未知模型同样分桶累计（价格由设置层决定）', () => {
   const projection = createTokenCostProjection()
   let state = projection.init()
   state = projection.apply(state, assistantMessage({
@@ -158,23 +176,7 @@ test('未知模型按兜底价计费，仍出现在明细', () => {
   }))
   const value = projection.view(state)
   assert.equal(value.models[0].model, 'future-model')
-  const expected = (1e6 * FLASH_PEAK.cacheMiss + 1e6 * FLASH_PEAK.output) / 1e6
-  assert.ok(Math.abs(value.totalCostCny - expected) < 1e-9)
-})
-
-test('config 可覆盖定价', () => {
-  const projection = createTokenCostProjection({
-    models: [{ id: 'deepseek-v4-flash', peak: { cacheMiss: 6.0, cacheHit: 0.5, output: 12.0 } }],
-  })
-  let state = projection.init()
-  state = projection.apply(state, assistantMessage({
-    turn: 1, step: 0, model: 'deepseek-v4-flash',
-    usage: { inputTokens: 1_000_000, outputTokens: 1_000_000 },
-    time: beijingTime(10),
-  }))
-  const value = projection.view(state)
-  const expected = (1e6 * 6.0 + 1e6 * 12.0) / 1e6
-  assert.ok(Math.abs(value.totalCostCny - expected) < 1e-9)
+  assert.equal(value.models[0].peak.uncachedInputTokens, 1_000_000)
 })
 
 test('多次请求累计（跨 turn/step）', () => {
@@ -188,6 +190,6 @@ test('多次请求累计（跨 turn/step）', () => {
     }))
   }
   const value = projection.view(state)
-  assert.equal(value.models[0].uncachedInputTokens, 3000)
-  assert.equal(value.models[0].outputTokens, 3000)
+  assert.equal(value.models[0].peak.uncachedInputTokens, 3000)
+  assert.equal(value.models[0].peak.outputTokens, 3000)
 })

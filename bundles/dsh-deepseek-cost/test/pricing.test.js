@@ -5,7 +5,6 @@ import {
   costOf,
   offpeakOf,
   rateTierAt,
-  resolvePriceTable,
 } from '../src/pricing.js'
 
 // 构造北京时间某时刻的 epoch 毫秒（北京 = UTC+8）。
@@ -28,6 +27,20 @@ test('rateTierAt: 高峰时段为北京时间 9-12 与 14-18 点', () => {
 test('rateTierAt: 不受本地时区影响（同一时刻不同本地时区结果一致）', () => {
   const t = Date.UTC(2026, 0, 1, 2, 0) // 北京 10:00 = UTC 02:00
   assert.equal(rateTierAt(t), 'peak')
+})
+
+test('DEFAULT_PRICES: 覆盖官方两个模型且三桶齐全', () => {
+  assert.deepEqual(
+    Object.keys(DEFAULT_PRICES).sort(),
+    ['deepseek-v4-flash', 'deepseek-v4-pro'],
+  )
+  for (const entry of Object.values(DEFAULT_PRICES)) {
+    for (const tier of ['peak', 'offpeak']) {
+      for (const key of ['cacheMiss', 'cacheHit', 'output']) {
+        assert.ok(entry[tier][key] >= 0, `${entry.name} ${tier} ${key}`)
+      }
+    }
+  }
 })
 
 test('costOf: 每百万 tokens 按官方价折算（元）', () => {
@@ -69,35 +82,4 @@ test('offpeakOf: 空闲 = 高峰一半', () => {
   assert.deepEqual(offpeakOf({ cacheMiss: 3.0, cacheHit: 0.10, output: 9.0 }), {
     cacheMiss: 1.5, cacheHit: 0.05, output: 4.5,
   })
-})
-
-test('resolvePriceTable: 默认含官方两个模型', () => {
-  const table = resolvePriceTable()
-  assert.equal(table['deepseek-v4-flash'].name, 'DeepSeek-V4-Flash')
-  assert.equal(table['deepseek-v4-pro'].peak.output, 27.0)
-  assert.equal(table.__default.peak.cacheMiss, 3.0)
-})
-
-test('resolvePriceTable: models 覆盖与新增', () => {
-  const table = resolvePriceTable({
-    models: [
-      { id: 'deepseek-v4-pro', peak: { cacheMiss: 8.0, cacheHit: 0.2, output: 25.0 } },
-      { id: 'custom-model', name: '自定义模型', peak: { cacheMiss: 5.0, cacheHit: 0.5, output: 10.0 } },
-    ],
-  })
-  assert.equal(table['deepseek-v4-pro'].peak.cacheMiss, 8.0)
-  assert.equal(table['deepseek-v4-pro'].offpeak.cacheMiss, 4.0) // 未给 offpeak → 一半
-  assert.equal(table['custom-model'].name, '自定义模型')
-  assert.equal(table['custom-model'].peak.output, 10.0)
-})
-
-test('resolvePriceTable: defaultRates 覆盖未知模型兜底价', () => {
-  const table = resolvePriceTable({
-    defaultRates: { peak: { cacheMiss: 6.0, cacheHit: 0.6, output: 12.0 } },
-  })
-  assert.equal(table.__default.peak.output, 12.0)
-  assert.equal(table.__default.offpeak.output, 6.0)
-  // 未知模型在投影中走 `table[model] ?? table.__default` 兜底。
-  assert.equal(table['some-unknown-model'], undefined)
-  assert.equal(table.__default.peak.cacheMiss, 6.0)
 })

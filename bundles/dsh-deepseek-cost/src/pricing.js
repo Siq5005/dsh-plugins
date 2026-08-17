@@ -7,9 +7,12 @@
  * 时段：空闲时段价格为高峰时段的一半。高峰时段为北京时间 9:00–12:00 与
  * 14:00–18:00，其余为空闲时段。
  *
- * DeepSeek 计费只有三个桶：缓存命中输入（cache hit）、缓存未命中输入
- * （cache miss）、输出。DSH 的 TokenUsage 中 cacheWriteTokens 在 DeepSeek
- * 侧不单独计费（缓存写入并入未命中输入），因此按未命中价计。
+ * 计费约定：
+ *   - DeepSeek 官方模型（deepseek-v4-flash / deepseek-v4-pro）自动使用本表
+ *     默认定价（只读，设置页展示）。
+ *   - 其他模型由用户在「费用统计」设置页填写（flat 三桶价：未命中/命中/输出，
+ *     每百万 tokens 元；不区分高峰空闲）。DSH 的 TokenUsage 中
+ *     cacheWriteTokens 按未命中价计。
  */
 
 /** 每百万 tokens 的一组三桶价格（元）。 */
@@ -27,12 +30,6 @@ export const DEFAULT_PRICES = Object.freeze({
     peak: Object.freeze({ cacheMiss: 9.0, cacheHit: 0.30, output: 27.0 }),
     offpeak: Object.freeze({ cacheMiss: 4.5, cacheHit: 0.15, output: 13.5 }),
   }),
-})
-
-/** 未知模型的兜底价（保守取最便宜的 Flash 档，可在 config.defaultRates 覆盖）。 */
-export const DEFAULT_FALLBACK_RATES = Object.freeze({
-  peak: DEFAULT_PRICES['deepseek-v4-flash'].peak,
-  offpeak: DEFAULT_PRICES['deepseek-v4-flash'].offpeak,
 })
 
 /** 空闲时段价格 = 高峰时段价格的一半（官方规则）。 */
@@ -59,40 +56,6 @@ export function rateTierAt(timeMs) {
 }
 
 /**
- * 把 config（cordis.patch.yml 的 config / ctx.config）解析为定价表。
- * 返回普通对象：{ [modelId]: { name, peak, offpeak }, __default: { peak, offpeak } }。
- * config 形态（全部可选）：
- *   - models: [{ id, name?, peak: {cacheMiss, cacheHit, output}, offpeak? }] 按 id 覆盖默认价
- *   - defaultRates: { peak: {...}, offpeak: {...} } 覆盖未知模型兜底价
- * @param {object} [config]
- * @returns {{ [model: string]: object, __default: object }}
- */
-export function resolvePriceTable(config = {}) {
-  const table = { __default: { ...DEFAULT_FALLBACK_RATES } }
-  for (const [id, entry] of Object.entries(DEFAULT_PRICES)) {
-    table[id] = { name: entry.name, peak: entry.peak, offpeak: entry.offpeak }
-  }
-  const defaultRates = config.defaultRates
-  if (defaultRates && defaultRates.peak) {
-    table.__default = {
-      peak: { ...defaultRates.peak },
-      offpeak: { ...(defaultRates.offpeak ?? offpeakOf(defaultRates.peak)) },
-    }
-  }
-  const overrides = Array.isArray(config.models) ? config.models : []
-  for (const entry of overrides) {
-    if (!entry || typeof entry.id !== 'string' || entry.id === '') continue
-    const peak = entry.peak ?? table.__default.peak
-    table[entry.id] = {
-      name: typeof entry.name === 'string' ? entry.name : entry.id,
-      peak: { ...peak },
-      offpeak: { ...(entry.offpeak ?? offpeakOf(peak)) },
-    }
-  }
-  return table
-}
-
-/**
  * 计算一批 token 桶的费用（元）。
  * @param {{ uncachedInputTokens?: number, cacheReadTokens?: number, cacheWriteTokens?: number, outputTokens?: number }} buckets
  * @param {{ cacheMiss: number, cacheHit: number, output: number }} rates 每百万 tokens 价格（元）
@@ -105,7 +68,7 @@ export function costOf(buckets, rates) {
   const outputTokens = buckets.outputTokens ?? 0
   const uncachedInputCost = uncachedInputTokens * rates.cacheMiss / 1e6
   const cacheReadCost = cacheReadTokens * rates.cacheHit / 1e6
-  // DeepSeek 无独立缓存写入桶：写入并入未命中输入价。
+  // 无独立缓存写入桶：写入并入未命中输入价。
   const cacheWriteCost = cacheWriteTokens * rates.cacheMiss / 1e6
   const outputCost = outputTokens * rates.output / 1e6
   return {

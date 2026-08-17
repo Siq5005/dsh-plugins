@@ -5,30 +5,50 @@ import { createTokenCostProjection } from '../src/cost-projection.js'
 
 function createMockCtx() {
   const registrations = []
+  const routes = []
   const cleanups = []
+  const settingsState = { enabled: true, models: [] }
+  const settings = {
+    register(ns, schema, opts) {
+      assert.equal(ns, 'dsh-deepseek-cost')
+      Object.assign(settingsState, opts?.base ?? {})
+      return {
+        get: () => ({ ...settingsState }),
+        update: async (patch) => Object.assign(settingsState, patch),
+        watch: () => () => {},
+      }
+    },
+  }
   const ctx = {
-    // 与真实 DSH 一致：inject 等待服务后调用回调；effect 立即执行并收集 cleanup。
     inject(deps, cb) {
-      cb({
-        sessionProjections: {
+      const services = {}
+      if (deps.includes('sessionProjections')) {
+        services.sessionProjections = {
           register(def) {
             registrations.push(def)
-            // 与真实 sessionProjections.register 一致：返回精确 disposer；
-            // 清理由外层 effect(fn) 统一登记。
             return () => {
               const index = registrations.indexOf(def)
               if (index !== -1) registrations.splice(index, 1)
             }
           },
-        },
-        effect(fn) {
-          const cleanup = fn()
-          if (typeof cleanup === 'function') cleanups.push(cleanup)
-        },
-      })
+        }
+      }
+      if (deps.includes('settings')) {
+        services.settings = settings
+      }
+      if (deps.includes('webServer')) {
+        services.webServer = {
+          register(route) { routes.push(route); return () => {} },
+        }
+      }
+      services.effect = (fn) => {
+        const cleanup = fn()
+        if (typeof cleanup === 'function') cleanups.push(cleanup)
+      }
+      cb(services)
     },
   }
-  return { ctx, registrations, cleanups }
+  return { ctx, registrations, routes, cleanups }
 }
 
 test('插件导出 name 与 Config', () => {
@@ -39,32 +59,36 @@ test('插件导出 name 与 Config', () => {
   assert.equal(resolved.enabled, true)
 })
 
-test('apply 注册 tokenCost 投影，定义可通过校验', () => {
-  const { ctx, registrations, cleanups } = createMockCtx()
+test('apply 注册投影 + 设置命名空间 + 配置端点', () => {
+  const { ctx, registrations, routes, cleanups } = createMockCtx()
   apply(ctx)
+  // 投影
   assert.equal(registrations.length, 1)
   const definition = registrations[0]
   assert.equal(definition.key, 'tokenCost')
-  assert.equal(definition.stateVersion, 1)
+  assert.equal(definition.stateVersion, 2)
   assert.equal(typeof definition.init, 'function')
   assert.equal(typeof definition.apply, 'function')
   assert.equal(typeof definition.view, 'function')
-  // 定义与导出的工厂一致（同一实现）。
-  const direct = createTokenCostProjection()
-  assert.equal(direct.key, definition.key)
+  assert.equal(createTokenCostProjection().key, definition.key)
   // init 状态可解析 view 并过 schema。
   const value = definition.view(definition.init())
-  assert.equal(value.totalCostCny, 0)
+  assert.deepEqual(value, { models: [], lastTier: 'offpeak' })
+  // 端点
+  assert.equal(routes.length, 1)
+  assert.equal(routes[0].path, '/plugins/dsh-deepseek-cost/config')
+  assert.equal(routes[0].kind, 'exact')
   // 清理：disposer 从注册表移除。
-  assert.equal(cleanups.length, 1)
+  assert.ok(cleanups.length >= 1)
   cleanups[0]()
   assert.equal(registrations.length, 0)
 })
 
-test('apply 传 enabled:false 不注册', () => {
-  const { ctx, registrations } = createMockCtx()
+test('apply 传 enabled:false 不注册任何能力', () => {
+  const { ctx, registrations, routes } = createMockCtx()
   apply(ctx, { enabled: false })
   assert.equal(registrations.length, 0)
+  assert.equal(routes.length, 0)
 })
 
 test('apply 在无 inject 的上下文上不抛错', () => {
@@ -72,7 +96,7 @@ test('apply 在无 inject 的上下文上不抛错', () => {
   apply({ inject: undefined })
 })
 
-test('apply 在无 sessionProjections 的注入回调上不抛错（headless 组装）', () => {
+test('apply 在注入回调缺服务时不抛错（headless 组装）', () => {
   const ctx = {
     inject(deps, cb) {
       cb({ effect: () => () => {} })
