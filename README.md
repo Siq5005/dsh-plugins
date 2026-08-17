@@ -11,6 +11,7 @@
 | dsh-hello-plugin | bundle | 示例插件：验证安装链路的最小模板 | [bundles/hello-plugin](bundles/hello-plugin/) |
 | dsh-dafeiyu-mac | bundle | macOS 桌面大肥鱼：由 DSH 会话状态驱动的桌宠伴侣（复刻自 dsh-dafeiyu） | [bundles/dsh-dafeiyu-mac](bundles/dsh-dafeiyu-mac/) |
 | dsh-deepseek-cost | bundle | 按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用（未缓存输入 / 缓存输入 / 输出，分高峰空闲时段计价） | [bundles/dsh-deepseek-cost](bundles/dsh-deepseek-cost/) |
+| dsh-vision-adapter | bundle | 给 DeepSeek 主模型加"眼睛"：adapter 层把图片改写为文本，`analyze_image` 工具按需调用 OpenAI 兼容多模态端点 | [bundles/dsh-vision-adapter](bundles/dsh-vision-adapter/) |
 
 完整机器可读索引见 [`plugins.json`](plugins.json)（字段定义见 [`plugins.schema.json`](plugins.schema.json)）。
 

@@ -1,0 +1,49 @@
+{
+  "name": "dsh-vision-adapter",
+  "version": "0.1.0",
+  "description": "给 DeepSeek 主模型加\"眼睛\"：stealth 式接管 deepseek-official 路由，在 adapter 层把图片改写为文本（引用+引导，可选自动描述），analyze_image 工具按需调用 OpenAI 兼容多模态端点",
+  "author": "Siq5005",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./vision-client": "./src/vision-client.js",
+    "./rewrite": "./src/rewrite.js",
+    "./image-memory": "./src/image-memory.js",
+    "./session-refs": "./src/session-refs.js",
+    "./analyze-tool": "./src/analyze-tool.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-llm-deepseek": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-anonymous-user-id": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-attachment": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "vision",
+    "multimodal",
+    "image",
+    "analyze-image"
+  ],
+  "license": "MIT"
+}

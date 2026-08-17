@@ -27,6 +27,15 @@
       "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-deepseek-cost\"",
       "tags": ["token-usage", "cost-tracking", "pricing", "deepseek"],
       "added": "2026-08-17"
+    },
+    {
+      "name": "dsh-vision-adapter",
+      "description": "给 DeepSeek 主模型加\"眼睛\"：stealth 式接管 deepseek-official 路由，adapter 层把图片改写为文本，analyze_image 工具按需调用 OpenAI 兼容多模态端点（内容哈希缓存，可选自动描述）",
+      "type": "bundle",
+      "path": "bundles/dsh-vision-adapter",
+      "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-vision-adapter\"",
+      "tags": ["vision", "multimodal", "image", "deepseek", "image-analysis"],
+      "added": "2026-08-17"
     }
   ]
 }
