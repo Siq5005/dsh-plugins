@@ -209,11 +209,12 @@ export function apply(ctx, config) {
       error && error.message ? error.message : String(error),
     )
   }
-  const stealthDeps = () => ({
+  const stealthDeps = (overrides = {}) => ({
     delegateProvider: NATIVE_ROUTE,
     imageMemory,
     config: current,
     nativeAdapter: () => nativeAdapter,
+    ...overrides,
   })
 
   if (nativeAdapter !== undefined) {
@@ -228,9 +229,13 @@ export function apply(ctx, config) {
     }
 
     // ── 3. deepseek-vision 包装组：显式入口，官方行保留时手动选择 ─────────
+    // 显示名用「DeepSeek (vision)」，与官方 DeepSeek 组区分开。
     if (config.visionRoute !== false && !adapterAvailable(ctx.llm, VISION_ROUTE)) {
       try {
-        const visionHandle = ctx.llm.registerAdapter([VISION_ROUTE], createStealthAdapter(ctx, stealthDeps()))
+        const visionHandle = ctx.llm.registerAdapter(
+          [VISION_ROUTE],
+          createStealthAdapter(ctx, stealthDeps({ displayName: 'DeepSeek (vision)' })),
+        )
         ctx.effect(() => visionHandle, 'dsh-vision-adapter: vision route')
       } catch (error) {
         ctx.logger?.warn(

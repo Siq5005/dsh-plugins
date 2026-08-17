@@ -128,11 +128,15 @@ export async function autoCaptionImages(messages, deps) {
  * @param {{ get(id: string): string|undefined, set(id: string, v: string): void }} deps.imageMemory
  * @param {() => object} deps.config
  * @param {() => object} deps.nativeAdapter - 返回原生 adapter（listModels/resolveModel/retry 委托）。
+ * @param {string} [deps.displayName='DeepSeek'] - 模型选择器里的显示名。
+ *   stealth 接管 deepseek-official 时保持 'DeepSeek'（外观与官方一致）；
+ *   显式包装组 deepseek-vision 用 'DeepSeek (vision)' 以便与官方组区分。
  * @param {typeof callVisionModel} [deps.callVision]
  * @returns {object} adapter
  */
 export function createStealthAdapter(ctx, deps) {
   const native = () => deps.nativeAdapter()
+  const displayName = deps.displayName ?? 'DeepSeek'
   const wrappedStream = {
     async *stream(options) {
       // 可选自动描述：先为无缓存图片生成描述（写入 imageMemory），再重写。
@@ -154,7 +158,7 @@ export function createStealthAdapter(ctx, deps) {
   }
   return {
     providerInfo(provider) {
-      return { id: provider, name: 'DeepSeek' }
+      return { id: provider, name: displayName }
     },
     providerRetryPolicy(provider) {
       return native().providerRetryPolicy(provider)

@@ -111,6 +111,25 @@ test('stealth adapter: listModels / resolveModel 声明 image 输入', async () 
   assert.equal(resolved.id, 'deepseek-chat')
 })
 
+test('stealth adapter: providerInfo 显示名可配置（默认 DeepSeek）', () => {
+  const { ctx } = makeCtx()
+  const base = createStealthAdapter(ctx, {
+    delegateProvider: NATIVE_ROUTE,
+    imageMemory: createImageMemory(10),
+    config: () => ({ autoCaption: false }),
+    nativeAdapter: () => nativeAdapter,
+  })
+  assert.equal(base.providerInfo('deepseek-official').name, 'DeepSeek')
+  const vision = createStealthAdapter(ctx, {
+    delegateProvider: NATIVE_ROUTE,
+    imageMemory: createImageMemory(10),
+    config: () => ({ autoCaption: false }),
+    nativeAdapter: () => nativeAdapter,
+    displayName: 'DeepSeek (vision)',
+  })
+  assert.equal(vision.providerInfo('deepseek-vision').name, 'DeepSeek (vision)')
+})
+
 test('autoCaptionImages: 开启时自动描述并写入缓存', async () => {
   const stored = new Map([['sha256:a', { data: Buffer.from([1]), mediaType: 'image/png' }]])
   const attachments = {
