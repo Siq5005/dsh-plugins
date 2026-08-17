@@ -1,0 +1,47 @@
+{
+  "name": "dsh-deepseek-cost",
+  "version": "0.1.0",
+  "description": "按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用（未缓存输入 / 缓存输入 / 输出）",
+  "author": "Siq5005",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./lib/client.js",
+    "./pricing": "./src/pricing.js",
+    "./cost-projection": "./src/cost-projection.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "zod": "^4.4.3"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ],
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "token-usage",
+    "cost-tracking",
+    "pricing"
+  ],
+  "license": "MIT"
+}

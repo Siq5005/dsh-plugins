@@ -74,3 +74,15 @@
   - 验证：Node 测试 14/14 通过（含模拟 DSH ctx 冒烟测试与 headless 集成）；PySide6 可视化冒烟通过。
 - **遗留**：未打包 helper 单文件（依赖本机 Python + PySide6）；未实现走动/互动动画与布局持久化。
 - **注意**：本插件素材版权风险与上游相同，仅作学习复刻用途。
+
+## D-005 第二个实际插件：dsh-deepseek-cost（对话费用统计）
+
+- **日期**：2026-08-17
+- **状态**：已采纳（Adopted）
+- **背景**：需要看清当前对话按 DeepSeek 官方定价消耗了多少钱。
+- **决策**：
+  - 数据源：直接折叠会话日志中 provider 报告的 `assistant/message` usage（未缓存输入 / 缓存命中输入 / 缓存写入 / 输出），非估算。
+  - 架构：注册自定义**会话投影** `tokenCost`（`sessionProjections.register`）——随日志重放、压缩/重启后仍准确，变更经 `session/projection` push 帧推给浏览器端，Client 用 `useProjection('tokenCost')` 零 RPC 读取；展示在官方统计行所在槽 `conversation.composer.dock`。
+  - 计价：内置 DeepSeek 官方 V4 定价快照（人民币 / 百万 tokens），按请求时刻自动区分高峰 / 空闲时段（北京时间 9-12、14-18 点为高峰，空闲半价）；`models` / `defaultRates` 配置可覆盖；未知模型按 V4-Flash 档兜底。
+  - 验证：Node 测试 24/24 通过（定价数学 / 投影折叠与替换语义 / 插件冒烟）。
+- **遗留**：定价为快照，官方调价需更新 `src/pricing.js` 或配置覆盖（改配置需重启）；未做费用设置页 UI。

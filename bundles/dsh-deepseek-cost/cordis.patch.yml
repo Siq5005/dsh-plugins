@@ -1,0 +1,5 @@
+- insert:
+    - id: dsh-deepseek-cost
+      name: dsh-deepseek-cost
+      config:
+        enabled: true
