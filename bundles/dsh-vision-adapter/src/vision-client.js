@@ -106,6 +106,33 @@ export function buildVisionRequest({ model, question, prompt, images }) {
 }
 
 /**
+ * 计算 chat/completions 端点 URL（容错）：
+ *   - baseURL 已以 /chat/completions 结尾 → 原样使用；
+ *   - 否则拼接 `${baseURL}/chat/completions`。
+ * 常见误区：baseURL 填服务商域名根（如 https://api.xxx.com）而非 API 前缀
+ * （如 https://api.xxx.com/v1），会请求到错误路径（网关可能返回 401/HTML）。
+ * @param {string} baseURL
+ * @returns {string} 空串表示未配置。
+ */
+export function endpointUrl(baseURL) {
+  const base = String(baseURL ?? '').replace(/\/+$/, '')
+  if (base === '') return ''
+  if (/\/chat\/completions$/i.test(base)) return base
+  return `${base}/chat/completions`
+}
+
+/** 读响应体前 200 字符片段（错误诊断用，不含 key）。 */
+async function readBodySnippet(response) {
+  try {
+    const text = await response.text()
+    const trimmed = String(text ?? '').trim()
+    return trimmed.length > 0 ? trimmed.slice(0, 200) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * 调用一次 OpenAI 兼容多模态端点（非流式，等完整答案）。
  * @param {object} input
  * @param {string} input.baseURL - 端点基址，如 https://api.openai.com/v1
@@ -130,8 +157,8 @@ export async function callVisionModel({
   signal,
   fetchImpl = fetch,
 }) {
-  const base = String(baseURL ?? '').replace(/\/+$/, '')
-  if (base === '') {
+  const endpoint = endpointUrl(baseURL)
+  if (endpoint === '') {
     return { ok: false, kind: 'VISION_OTHER', retryable: false, reason: '视觉端点 baseURL 未配置' }
   }
   if (images.length === 0) {
@@ -151,7 +178,7 @@ export async function callVisionModel({
   try {
     let response
     try {
-      response = await fetchImpl(`${base}/chat/completions`, {
+      response = await fetchImpl(endpoint, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -162,21 +189,32 @@ export async function callVisionModel({
       })
     } catch (error) {
       const classified = classifyVisionError(error, undefined)
-      return { ok: false, ...classified }
+      return { ok: false, ...classified, reason: `${classified.reason}（端点：${endpoint}）` }
     }
     if (!response.ok) {
       const classified = classifyVisionError(undefined, response.status)
-      return { ok: false, ...classified }
+      const snippet = await readBodySnippet(response)
+      return {
+        ok: false,
+        ...classified,
+        reason: `${classified.reason}（端点：${endpoint}${snippet !== undefined ? `，响应：${snippet}` : ''}）`,
+      }
     }
     let payload
     try {
       payload = await response.json()
     } catch {
-      return { ok: false, kind: 'VISION_OTHER', retryable: false, reason: '视觉端点返回了非 JSON 响应' }
+      const snippet = await readBodySnippet(response)
+      return {
+        ok: false,
+        kind: 'VISION_OTHER',
+        retryable: false,
+        reason: `视觉端点返回了非 JSON 响应（端点：${endpoint}${snippet !== undefined ? `，响应：${snippet}` : ''}）`,
+      }
     }
     const text = extractAnswerText(payload)
     if (text === undefined || text.trim() === '') {
-      return { ok: false, kind: 'VISION_OTHER', retryable: false, reason: '视觉端点未返回可用文本答案' }
+      return { ok: false, kind: 'VISION_OTHER', retryable: false, reason: `视觉端点未返回可用文本答案（端点：${endpoint}）` }
     }
     return { ok: true, text: text.trim() }
   } finally {

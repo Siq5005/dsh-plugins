@@ -132,7 +132,7 @@ window.__ModuleLoader__.load({ id: 'dsh-vision-adapter', factory: (require) => {
       React.createElement('div', { style: { fontSize: 13, opacity: 0.75 } },
         '给 DeepSeek 主模型加"眼睛"：图片在 adapter 层改写为文本，analyze_image 工具按需调用下方多模态端点。' +
         '改动保存后即时生效；apiKey 建议用环境变量（!!js process.env.VISION_API_KEY）而非明文。'),
-      React.createElement(Field, { label: '多模态端点 baseURL', hint: 'OpenAI 兼容端点，含 /v1（OpenAI / siliconflow / 智谱 / OpenRouter 等）' },
+      React.createElement(Field, { label: '多模态端点 baseURL', hint: 'OpenAI 兼容端点，需含 API 路径前缀（如 https://api.openai.com/v1 或服务商的 /v1）；填域名根（如 https://api.xxx.com）会请求到错误路径，常见表现是 401' },
         React.createElement('input', {
           style: INPUT_STYLE, value: draft.baseURL, spellCheck: false,
           onChange: (event) => patch({ baseURL: event.target.value }),

@@ -6,11 +6,20 @@ import {
   buildVisionRequest,
   callVisionModel,
   extractAnswerText,
+  endpointUrl,
 } from '../src/vision-client.js'
 
 test('toDataUrl: 生成 data URL', () => {
   const url = toDataUrl(Buffer.from([1, 2, 3]), 'image/png')
   assert.equal(url, 'data:image/png;base64,AQID')
+})
+
+test('endpointUrl: 拼接 /chat/completions 且容错', () => {
+  assert.equal(endpointUrl('https://api.openai.com/v1'), 'https://api.openai.com/v1/chat/completions')
+  assert.equal(endpointUrl('https://api.openai.com/v1/'), 'https://api.openai.com/v1/chat/completions')
+  assert.equal(endpointUrl('https://www.yzcld.com'), 'https://www.yzcld.com/chat/completions')
+  assert.equal(endpointUrl('https://x.com/chat/completions'), 'https://x.com/chat/completions')
+  assert.equal(endpointUrl(''), '')
 })
 
 test('classifyVisionError: 各状态分类', () => {
@@ -75,17 +84,35 @@ test('callVisionModel: 成功返回文本', async () => {
   assert.equal(result.text, '一只猫')
 })
 
-test('callVisionModel: 401 认证失败不可重试', async () => {
-  const fetchImpl = async () => ({ ok: false, status: 401 })
+test('callVisionModel: 401 认证失败不可重试（reason 带端点）', async () => {
+  const fetchImpl = async () => ({ ok: false, status: 401, text: async () => '{"error":{"message":"Invalid API key"}}' })
   const result = await callVisionModel({
     baseURL: 'https://x/v1', apiKey: 'bad', model: 'm',
     question: 'q', images: [{ data: Buffer.from([1]), mediaType: 'image/png' }],
     fetchImpl,
   })
-  assert.deepEqual(result, {
-    ok: false, kind: 'VISION_AUTH_FAILED', retryable: false,
-    reason: '视觉端点认证失败（HTTP 401）：检查 apiKey 与端点权限',
+  assert.equal(result.ok, false)
+  assert.equal(result.kind, 'VISION_AUTH_FAILED')
+  assert.equal(result.retryable, false)
+  assert.match(result.reason, /端点：https:\/\/x\/v1\/chat\/completions/)
+  assert.match(result.reason, /Invalid API key/)
+})
+
+test('callVisionModel: 非 JSON 响应（如打到网页）带端点与 body 片段', async () => {
+  const fetchImpl = async () => ({
+    ok: true, status: 200,
+    json: async () => { throw new Error('not json') },
+    text: async () => '<!doctype html><html>服务商前端页面</html>',
   })
+  const result = await callVisionModel({
+    baseURL: 'https://www.yzcld.com', apiKey: 'k', model: 'm',
+    question: 'q', images: [{ data: Buffer.from([1]), mediaType: 'image/png' }],
+    fetchImpl,
+  })
+  assert.equal(result.ok, false)
+  assert.equal(result.kind, 'VISION_OTHER')
+  assert.match(result.reason, /端点：https:\/\/www\.yzcld\.com\/chat\/completions/)
+  assert.match(result.reason, /<!doctype html>/)
 })
 
 test('callVisionModel: 网络错误', async () => {
@@ -98,6 +125,7 @@ test('callVisionModel: 网络错误', async () => {
   assert.equal(result.ok, false)
   assert.equal(result.kind, 'VISION_NETWORK')
   assert.equal(result.retryable, true)
+  assert.match(result.reason, /端点：https:\/\/x\/v1\/chat\/completions/)
 })
 
 test('callVisionModel: baseURL 空 → 配置错误', async () => {

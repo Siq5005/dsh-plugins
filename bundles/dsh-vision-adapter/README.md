@@ -59,7 +59,8 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-vision-ad
   name: dsh-vision-adapter
   config:
     enabled: true
-    # OpenAI 兼容多模态端点（含 /v1；支持 OpenAI / siliconflow / 智谱 / OpenRouter 等）
+    # OpenAI 兼容多模态端点——必须含 API 路径前缀（如 /v1）：服务商域名根
+    # （如 https://api.xxx.com）会请求到错误路径，常见表现是 401/打到网页
     baseURL: https://api.openai.com/v1
     apiKey: !!js process.env.VISION_API_KEY   # 建议环境变量注入，勿写死
     model: gpt-4o-mini                         # 或 qwen-vl-plus / glm-4v-flash 等
