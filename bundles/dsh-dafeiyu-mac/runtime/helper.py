@@ -413,18 +413,19 @@ class PetWindow(QWidget):
             self.model.play_sequence(clips)
 
     def _start_walk(self) -> None:
-        """空闲巡逻：向左/右走一小段，窗口随之平移（不持久化位置）。
+        """空闲巡逻。
 
-        锁定时不触发——锁定语义是"固定位置、点击穿透"，走动会改变位置。
+        解锁：窗口随鱼平移（不持久化位置）；
+        锁定：窗口不动，鱼在窗口内横向走动（纯动画位移）。
         """
-        if self._walk is not None or self.config["reduced_motion"] or self.config["locked"]:
+        if self._walk is not None or self.config["reduced_motion"]:
             return
         if self.model.base_state != "IDLE" or self.model.overlay_clip_name is not None:
             return
         direction = random.choice([-1, 1])
         distance = random.randint(60, 140)
         side = "left" if direction < 0 else "right"
-        self._walk = {"dir": direction, "remaining": float(distance)}
+        self._walk = {"dir": direction, "remaining": float(distance), "offset": 0.0}
         self.model.play_sequence([f"walk_start_{side}", f"walk_side_{side}"])
 
     def _tick_walk(self, delta_ms: int) -> None:
@@ -432,6 +433,14 @@ class PetWindow(QWidget):
         if walk is None:
             return
         speed = 0.16  # px/ms
+        if self.config["locked"]:
+            # 锁定：窗口不动，位移作用于窗口内的鱼（pet），走到边缘停步回中。
+            walk["offset"] += walk["dir"] * speed * delta_ms
+            limit = max(10, (self.width() - self.pet.width()) / 2 - 12)
+            if abs(walk["offset"]) >= limit:
+                walk["offset"] = 0.0
+                self._finish_walk()
+            return
         step = walk["dir"] * speed * delta_ms
         screen = self.QApplication.primaryScreen()
         if screen is not None:
@@ -536,6 +545,9 @@ class PetWindow(QWidget):
             self.setFixedSize(self.BASE_W, target)
 
         px = int((self.width() - sw) / 2 + dx)
+        if self._walk is not None and self.config["locked"]:
+            # 锁定时走动：鱼在窗口内横向移动（窗口本身不动）。
+            px += int(self._walk.get("offset", 0.0))
         py = int(self.height() - sh - 12 + dy)
         self.pet.move(px, py)
         self._pet_rect = (px, py, sw, sh)
