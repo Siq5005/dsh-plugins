@@ -1,7 +1,0 @@
-# Desktop Host operations compose around the existing Web bundle.
-# Compatibility mode keeps upstream ownership of the browser carrier and rendered UI.
-- insert:
-    - id: desktop-shell
-      name: dsh-desktop
-      config:
-        mode: compatibility

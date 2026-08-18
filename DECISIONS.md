@@ -212,7 +212,7 @@
   3. 推为 `Siq5005/dsh-desktop` 仓库 main（`.gitignore` 已挡 `release/` 与 `node_modules/`，仅 3.46 MiB 源码 + 图标）；
   4. `plugins.json` 该条目：删除 `path`、`repo` 指向 `https://github.com/Siq5005/dsh-desktop`、`install` 改为 `git clone … && cd dsh-desktop && pnpm install && electron-builder --mac dmg`；
   5. README 目录表该行改标「bundle (独立仓库)」并指向新仓库。
-- **待办**：验证新仓库 clone + 构建、以及 `dsh plugin add "Siq5005/dsh-desktop"` 可安装后，再 `git rm -r bundles/dsh-desktop` 移除 monorepo 副本，避免双源漂移（暂保留原目录作对照）。
+- **完成（2026-08-18）**：新仓库 clone + `pnpm install` + `smoke-profile`/`smoke-boot` 全通过（desktop-shell 行挂载 index 129、in-process boot + 页面 200）；随后 `git rm -r bundles/dsh-desktop` 移除 monorepo 副本，索引统一经 `repo` 指向 `https://github.com/Siq5005/dsh-desktop`。DMG 打包未重跑——`electron-builder` 配置与 D-010 验证时一致（相对路径 `release/`/`build/`），拆分只改变仓库根路径。
 - **备注**：`dsh-desktop-context-menu` 仍留 monorepo 按 `path:` 安装；其与 dsh-desktop 仅一条注释引用，无代码耦合，不构成阻塞。
 
 
