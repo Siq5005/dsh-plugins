@@ -50,8 +50,8 @@
       "name": "dsh-desktop",
       "description": "DSH Desktop：把 Electron 桌面壳做成 DeepSeek Harness bundle（desktop-as-plugin）。Electron 主进程直接 boot Host Cordis，托盘 / 多 profile 切换 / DMG 打包；内置 @deepseek-ai/dsh 全量依赖",
       "type": "bundle",
-      "path": "bundles/dsh-desktop",
-      "install": "cd bundles/dsh-desktop && pnpm install && ./node_modules/.bin/electron-builder --mac dmg",
+      "install": "git clone https://github.com/Siq5005/dsh-desktop.git && cd dsh-desktop && pnpm install && ./node_modules/.bin/electron-builder --mac dmg",
+      "repo": "https://github.com/Siq5005/dsh-desktop",
       "tags": ["desktop", "electron", "desktop-as-plugin", "shell", "dmg", "macos"],
       "added": "2026-08-18"
     },

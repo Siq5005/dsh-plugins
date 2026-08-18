@@ -199,5 +199,21 @@
   - ✅ 带该 bundle 的 `smoke-boot`：in-process boot + web server + `desktop-shell` 调度 + 页面 200。
 - **遗留**：真实 Electron GUI 中的右键弹出与导航项启用状态需桌面端冒烟确认。
 
+---
+
+## D-012 方案 C 落地：dsh-desktop 拆分独立仓库
+
+- **日期**：2026-08-18
+- **状态**：已采纳（Adopted）
+- **背景**：`dsh-desktop` 已越过 D-003 方案 C 的触发条件——独立版本（0.1.0）、electron-builder 独立发布（DMG/ZIP、appId/productName）、`install` 不再走 monorepo 的 `path:` 装法（改为 clone + 构建）。继续留在集合仓库会让目录索引与安装命令和其余 path-install bundle 不一致。
+- **决策**：按 D-003 演进路径执行 A→C 迁移：
+  1. 修 `bundles/dsh-desktop/README.md` 的 `cd bundles/dsh-desktop` → `cd dsh-desktop`（独立仓库布局）；
+  2. `git subtree split --prefix=bundles/dsh-desktop --branch=split/dsh-desktop` 拆出干净历史（3 笔原提交 + 1 笔路径修正，前缀剥离）；
+  3. 推为 `Siq5005/dsh-desktop` 仓库 main（`.gitignore` 已挡 `release/` 与 `node_modules/`，仅 3.46 MiB 源码 + 图标）；
+  4. `plugins.json` 该条目：删除 `path`、`repo` 指向 `https://github.com/Siq5005/dsh-desktop`、`install` 改为 `git clone … && cd dsh-desktop && pnpm install && electron-builder --mac dmg`；
+  5. README 目录表该行改标「bundle (独立仓库)」并指向新仓库。
+- **待办**：验证新仓库 clone + 构建、以及 `dsh plugin add "Siq5005/dsh-desktop"` 可安装后，再 `git rm -r bundles/dsh-desktop` 移除 monorepo 副本，避免双源漂移（暂保留原目录作对照）。
+- **备注**：`dsh-desktop-context-menu` 仍留 monorepo 按 `path:` 安装；其与 dsh-desktop 仅一条注释引用，无代码耦合，不构成阻塞。
+
 
 
