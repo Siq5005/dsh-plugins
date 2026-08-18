@@ -186,6 +186,11 @@ class PetWindow(QWidget):
         )
         self.bubble.hide()
 
+        # 余额合并进状态气泡的最下面一行；收到 balance 消息后更新。
+        self._bubble_message: dict[str, Any] | None = None
+        self._balance_text = ""
+        self._balance_detail = ""
+
         self.lock_badge = QLabel("🔒", self)
         self.lock_badge.setStyleSheet(
             "background: rgba(20, 20, 30, 180); color: white; border-radius: 8px;"
@@ -287,6 +292,8 @@ class PetWindow(QWidget):
             self._set_bubble(message)
         elif kind == "task":
             self._set_bubble(message)
+        elif kind == "balance":
+            self._set_balance(message)
         elif kind == "config":
             self.config["scale"] = float(message.get("scale", self.config["scale"]))
             self.config["bubble_scale"] = float(message.get("bubbleScale", self.config["bubble_scale"]))
@@ -303,15 +310,40 @@ class PetWindow(QWidget):
             self.QApplication.quit()
 
     def _set_bubble(self, message: dict[str, Any]) -> None:
-        text = message.get("message") or ""
-        detail = message.get("detail") or ""
-        if not text and not detail:
+        self._bubble_message = message
+        self._render_bubble()
+
+    def _set_balance(self, message: dict[str, Any]) -> None:
+        self._balance_text = message.get("message") or ""
+        self._balance_detail = message.get("detail") or ""
+        self._render_bubble()
+
+    def _render_bubble(self) -> None:
+        base = self._bubble_message or {}
+        text = base.get("message") or ""
+        detail = base.get("detail") or ""
+        balance_text = self._balance_text
+        balance_detail = self._balance_detail
+        if not text and not detail and not balance_text and not balance_detail:
             self.bubble.hide()
             return
         size = int(13 * self.config["bubble_scale"])
-        parts = [f'<div style="font-size:{size + 2}px; font-weight:600;">{esc(text)}</div>']
+        parts: list[str] = []
+        if text:
+            parts.append(f'<div style="font-size:{size + 2}px; font-weight:600;">{esc(text)}</div>')
         if detail:
             parts.append(f'<div style="font-size:{size - 1}px; opacity:0.8; margin-top:3px;">{esc(detail)}</div>')
+        if balance_text or balance_detail:
+            if parts:
+                parts.append('<div style="font-size:10px; opacity:0.45; margin-top:3px;">—</div>')
+            if balance_text:
+                parts.append(
+                    f'<div style="font-size:{size}px; font-weight:600; margin-top:3px;">{esc(balance_text)}</div>'
+                )
+            if balance_detail:
+                parts.append(
+                    f'<div style="font-size:{max(10, size - 2)}px; opacity:0.8; margin-top:2px;">{esc(balance_detail)}</div>'
+                )
         self.bubble.setText("".join(parts))
         self.bubble.adjustSize()
         self.bubble.setMaximumWidth(self.width() - 24)

@@ -12,6 +12,7 @@
 - 显示项目名、当前阶段、正在进行的步骤与真实待办进度。
 - 多会话时优先展示最需要注意的任务：`等待确认 > 错误 > 工作 > 思考 > 空闲`。
 - 可拖拽移动；右键可退出。
+- 可选联动 [dsh-deepseek-cost](../dsh-deepseek-cost/)：把当前 DeepSeek API Key 账号余额合并到状态气泡最下面一行（仅显示金额，不暴露密钥；默认关闭，在费用统计设置页开启）。
 
 ## 架构
 
@@ -27,8 +28,8 @@
 └──────────────────────────────────────────────────────┘
         ↓ 新行分隔 JSON（stdin/stdout）
 ┌─ 桌面渲染层（Python + PySide6）────────────────────────┐
-│ runtime/helper.py         透明置顶窗口 / 状态气泡 / 拖拽 /   │
-│                           帧动画 + 程序化 motion           │
+│ runtime/helper.py         透明置顶窗口 / 状态气泡（含余额行）/ │
+│                           拖拽 / 帧动画 + 程序化 motion       │
 │ runtime/animation_model.py 状态 → 动画 clip 纯状态机       │
 └──────────────────────────────────────────────────────┘
 ```
@@ -55,8 +56,8 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-dafeiyu-m
 
 ## 验证状态
 
-- Node 测试 14/14 通过：协议（3）、状态机 reducer（7）、helper 生命周期（2）、
-  插件冒烟测试（1，模拟 DSH ctx 完整链路）、headless 集成（1，见下）
+- Node 测试 18/18 通过：协议（4，含 BALANCE）、余额联动格式化（3）、状态机 reducer（7）、
+  helper 生命周期（2）、插件冒烟测试（1，模拟 DSH ctx 完整链路）、headless 集成（1，见下）
 - headless 协议链路：JS ↔ Python JSONL 握手 / ping-pong / shutdown 干净退出
 - 可视化冒烟：PySide6 窗口依次展示 IDLE/THINKING/WORKING/WAITING/SUCCESS/ERROR 后干净退出
 

@@ -1,11 +1,12 @@
 # dsh-deepseek-cost
 
-按 **DeepSeek 官方定价**统计当前对话的 token 用量与累计费用（人民币），在聊天输入框下方的统计行旁边实时显示。
+按 **DeepSeek 官方定价**统计当前对话的 token 用量与累计费用（人民币），在聊天输入框下方的统计行旁边实时显示；可选查询当前 API Key 的账号余额并联动桌宠气泡。
 
 - **Token 明细**：未缓存输入（cache miss）、缓存命中输入（cache hit）、缓存写入、输出 —— 直接取 DSH 会话日志中 provider 报告的 `usage`（与官方 stats 行同源，非估算）。
 - **分时计价**：官方按「高峰 / 空闲」两个时段计费（空闲 = 高峰半价）。高峰时段为**北京时间 9:00–12:00 与 14:00–18:00**；插件按每次请求发生的时刻自动区分。
 - **按模型计价**：**DeepSeek 官方模型**（`deepseek-v4-flash` / `deepseek-v4-pro`）自动使用官方默认定价（只读）；**其他模型**在「设置 → 费用统计」中填写价格（每百万 tokens 元，flat 三桶价），保存后**即时生效**（无需重启）。多模型混用的会话费用相加。
 - **持久可靠**：token 用量随会话日志重放（`tokenCost` 会话投影），对话压缩、重启后依然准确；浏览器端通过 `useProjection('tokenCost')` 实时接收 Host 推送。
+- **账号余额**（可选，默认关闭）：Host 侧通过当前 `DEEPSEEK_API_KEY` 调用 DeepSeek 官方 `GET /user/balance`，把结构化余额快照作为 `dshDeepseekBalance` 服务提供给桌宠等订阅方；浏览器和桌宠只拿到金额，不接触密钥。
 
 ## 展示位置
 
@@ -26,6 +27,20 @@ V4-Pro：空闲未缓存输入 1.2K · 空闲输出 0.9K = ¥0.0021
 
 有 token 但未配置价格的模型会提示「N 个模型未配置价格」，并在 hover 里列出模型 id，引导去设置页填写。尚无计费活动时（用量为 0 或投影未就绪）不显示。
 
+## 账号余额（联动桌宠）
+
+启用后，Host 侧每 15 分钟（可配置）请求一次：
+
+```
+GET {balanceBaseUrl}/user/balance
+Authorization: Bearer <DEEPSEEK_API_KEY>
+```
+
+- 默认使用 `DEEPSEEK_BASE_URL`，缺省回落到 `https://api.deepseek.com`；可在设置页覆盖 `balanceBaseUrl`。
+- API Key 通过 DSH 的 `credentials` 服务解析，只有 Host 进程能拿到；订阅方只收到 `{ status, totalBalance, currency, updatedAt }` 这类余额快照。
+- 桌宠插件 `dsh-dafeiyu-mac` 通过 `ctx.inject(['dshDeepseekBalance'])` 订阅该服务，收到 `ok` 快照时把 `余额 ¥xx.xx` 合并到状态气泡最下面一行；无 Key / 请求失败 / 功能关闭时自动隐藏。
+- 仅作展示用途，不替代 DeepSeek 官方控制台的账户信息；网络异常时静默降级为不显示。
+
 ## 费用统计设置页
 
 侧栏设置 → **费用统计**（`settings.section`）：
@@ -33,6 +48,7 @@ V4-Pro：空闲未缓存输入 1.2K · 空闲输出 0.9K = ¥0.0021
 - **DeepSeek 官方默认定价**：只读表格展示 `deepseek-v4-flash` / `deepseek-v4-pro` 的高峰 / 空闲三桶价。
 - **其他模型价格**：为每个非官方模型填写 `模型 id`、可选展示名，以及每百万 tokens 的 `未命中 / 命中 / 输出` 三桶价（flat，不区分高峰空闲），可增删；点「保存」后即时生效。
 - **启用费用统计**：总开关。
+- **DeepSeek 账号余额（桌宠气泡）**：`启用余额获取` 开关、`刷新间隔`、可选 `接口 base URL`；打开后即时生效。
 
 ## 官方定价快照
 
@@ -70,6 +86,9 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-deepseek-
       name: dsh-deepseek-cost
       config:
         enabled: true
+        # balanceEnabled: true # 开启账号余额并联动桌宠（默认关闭）
+        # balanceRefreshMinutes: 15
+        # balanceBaseUrl: https://api.deepseek.com
         # models: # 预置的自定义模型价格（也可在设置页添加）
         #   - id: gpt-4o
         #     name: GPT-4o
@@ -85,11 +104,12 @@ dsh-deepseek-cost/
 ├── package.json        # 声明 dsh.bundle + dsh.client
 ├── cordis.patch.yml    # 组合包贡献的配置层
 ├── src/
-│   ├── index.js        # Host 入口：Config + settings 命名空间 + 配置端点 + 注册投影
+│   ├── index.js        # Host 入口：Config + settings 命名空间 + 配置端点 + 注册投影 + 余额服务
+│   ├── balance.js      # DeepSeek /user/balance 查询服务（订阅式余额快照）
 │   ├── pricing.js      # 官方定价表 + 高峰/空闲时段 + 费用计算（纯函数）
 │   └── cost-projection.js # tokenCost 会话投影（按模型 × 时段折叠 usage，纯 token 事实）
-├── lib/client.js       # 浏览器端：composer.dock 费用行 + 费用统计设置页
-└── test/               # node:test（定价 / 投影 / 配置端点 / 冒烟）
+├── lib/client.js       # 浏览器端：composer.dock 费用行 + 费用统计设置页（含余额开关）
+└── test/               # node:test（定价 / 投影 / 配置端点 / 余额 / 冒烟）
 ```
 
 ## 验证
@@ -99,8 +119,12 @@ cd bundles/dsh-deepseek-cost
 node --test --test-timeout=15000 test/*.test.js
 ```
 
+当前 39/39 通过（定价 / 投影 / 配置端点 / 余额服务 / 冒烟）。
+
 ## 已知限制
 
 - 只展示本会话（当前对话）的费用；子 Agent 会话在各自会话中展示。
 - 官方模型定价为代码快照，官方调价需更新 `src/pricing.js`；自定义模型价格可在设置页随时修改。
 - 自定义模型按 flat 价计费（不区分高峰/空闲时段），与 DeepSeek 官方分时计价不同。
+- 账号余额默认关闭；开启后会周期性请求 DeepSeek 余额接口，请确保网络可达且 API Key 有权限。
+- 余额接口失败时静默降级（桌宠不显示），不会影响费用统计主链路。

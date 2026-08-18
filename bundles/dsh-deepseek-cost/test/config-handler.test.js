@@ -56,6 +56,10 @@ test('sanitizeConfigPatch: 合法补丁清洗通过', () => {
   assert.deepEqual(sanitizeConfigPatch({
     models: [{ id: 'x', name: '   ', cacheMiss: 1, cacheHit: 0, output: 2 }],
   }), { models: [{ id: 'x', cacheMiss: 1, cacheHit: 0, output: 2 }] })
+  // balance 字段可单独/组合清洗，baseUrl 去尾部斜杠
+  assert.deepEqual(sanitizeConfigPatch({
+    balanceEnabled: true, balanceRefreshMinutes: 30, balanceBaseUrl: 'https://api.example.com/',
+  }), { balanceEnabled: true, balanceRefreshMinutes: 30, balanceBaseUrl: 'https://api.example.com' })
   // 空补丁合法（不更新任何字段）
   assert.deepEqual(sanitizeConfigPatch({}), {})
 })
@@ -69,13 +73,25 @@ test('sanitizeConfigPatch: 非法补丁拒绝', () => {
   assert.throws(() => sanitizeConfigPatch({ models: [{}] }), /\.id must be a non-empty string/)
   assert.throws(() => sanitizeConfigPatch({ models: [{ id: 'x', cacheMiss: -1, cacheHit: 0, output: 0 }] }), /cacheMiss must be a non-negative number/)
   assert.throws(() => sanitizeConfigPatch({ models: [{ id: 'x', cacheMiss: 1, cacheHit: 'a', output: 0 }] }), /cacheHit must be a non-negative number/)
+  assert.throws(() => sanitizeConfigPatch({ balanceEnabled: 'yes' }), /balanceEnabled must be a boolean/)
+  assert.throws(() => sanitizeConfigPatch({ balanceRefreshMinutes: 0 }), /balanceRefreshMinutes must be an integer between 1 and 1440/)
+  assert.throws(() => sanitizeConfigPatch({ balanceRefreshMinutes: 1.5 }), /balanceRefreshMinutes must be an integer between 1 and 1440/)
+  assert.throws(() => sanitizeConfigPatch({ balanceBaseUrl: 'ftp://api.example.com' }), /balanceBaseUrl must be an http\(s\) URL/)
 })
 
 test('configPayload: 返回设置 + 官方默认定价（只读）', () => {
-  const settings = memorySettings({ enabled: true, models: [{ id: 'gpt-4o', cacheMiss: 5, cacheHit: 0.5, output: 10 }] })
+  const settings = memorySettings({
+    enabled: true,
+    models: [{ id: 'gpt-4o', cacheMiss: 5, cacheHit: 0.5, output: 10 }],
+    balanceEnabled: false,
+    balanceRefreshMinutes: 30,
+  })
   const payload = configPayload(settings)
   assert.equal(payload.enabled, true)
   assert.deepEqual(payload.models, [{ id: 'gpt-4o', cacheMiss: 5, cacheHit: 0.5, output: 10 }])
+  assert.equal(payload.balanceEnabled, false)
+  assert.equal(payload.balanceRefreshMinutes, 30)
+  assert.equal(payload.balanceBaseUrl, undefined)
   assert.equal(payload.defaults, DEFAULT_PRICES) // 官方默认表直出
 })
 

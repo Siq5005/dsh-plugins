@@ -143,6 +143,7 @@ export class HelperProcess {
     if (message.kind === CompanionMessageKind.HELLO) this.snapshot.set('hello', encodeMessage(message))
     if (message.kind === CompanionMessageKind.STATE) this.snapshot.set('state', encodeMessage(message))
     if (message.kind === CompanionMessageKind.TASK) this.snapshot.set('task', encodeMessage(message))
+    if (message.kind === CompanionMessageKind.BALANCE) this.snapshot.set('balance', encodeMessage(message))
     if (message.kind === CompanionMessageKind.CONFIG) this.snapshot.set('config', encodeMessage(message))
   }
 

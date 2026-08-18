@@ -21,7 +21,7 @@
     },
     {
       "name": "dsh-deepseek-cost",
-      "description": "按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用（未缓存输入 / 缓存输入 / 输出，分高峰空闲时段计价）",
+      "description": "按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用（未缓存输入 / 缓存输入 / 输出，分高峰空闲时段计价）；可选查询 DeepSeek 账号余额并联动桌宠气泡",
       "type": "bundle",
       "path": "bundles/dsh-deepseek-cost",
       "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-deepseek-cost\"",

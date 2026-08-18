@@ -17,6 +17,12 @@
  */
 
 import Schema from '@deepseek-ai/schemastery'
+import {
+  BALANCE_SERVICE,
+  DEFAULT_BALANCE_BASE_URL,
+  DEFAULT_BALANCE_REFRESH_MINUTES,
+  createBalanceService,
+} from './balance.js'
 import { createTokenCostProjection } from './cost-projection.js'
 import { DEFAULT_PRICES } from './pricing.js'
 
@@ -35,17 +41,29 @@ export const Config = Schema.object({
   enabled: Schema.boolean().default(true).description('启用当前对话费用统计'),
   models: Schema.array(customModelShape).default([])
     .description('非 DeepSeek 官方模型的 flat 三桶价（每百万 tokens 元），可在设置页修改'),
+  balanceEnabled: Schema.boolean().default(false)
+    .description('获取 DeepSeek 账号余额并暴露给桌宠等订阅方（需配置 DEEPSEEK_API_KEY）'),
+  balanceRefreshMinutes: Schema.number().min(1).max(1440).step(1).default(DEFAULT_BALANCE_REFRESH_MINUTES)
+    .description('余额刷新间隔（分钟）'),
+  balanceBaseUrl: Schema.string()
+    .description('余额接口 base URL；缺省用 DEEPSEEK_BASE_URL 或官方公开端点'),
 }).description('按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用')
 
 const defaults = Object.freeze({
   enabled: true,
   models: [],
+  balanceEnabled: false,
+  balanceRefreshMinutes: DEFAULT_BALANCE_REFRESH_MINUTES,
+  balanceBaseUrl: undefined,
 })
 
 function publicConfig(config = {}) {
   return {
     enabled: config.enabled ?? defaults.enabled,
     models: Array.isArray(config.models) ? config.models : defaults.models,
+    balanceEnabled: config.balanceEnabled ?? defaults.balanceEnabled,
+    balanceRefreshMinutes: config.balanceRefreshMinutes ?? defaults.balanceRefreshMinutes,
+    balanceBaseUrl: config.balanceBaseUrl ?? defaults.balanceBaseUrl,
   }
 }
 
@@ -72,16 +90,16 @@ function isLoopback(address) {
 }
 
 /**
- * 校验并清洗 PATCH 请求体（enabled / models）。
+ * 校验并清洗 PATCH 请求体（enabled / models / balance 相关字段）。
  * @param {unknown} value
- * @returns {{ enabled?: boolean, models?: object[] }} 清洗后的补丁
+ * @returns {object} 清洗后的补丁
  */
 export function sanitizeConfigPatch(value) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('patch must be an object')
   }
   const patch = {}
-  const ALLOWED = new Set(['enabled', 'models'])
+  const ALLOWED = new Set(['enabled', 'models', 'balanceEnabled', 'balanceRefreshMinutes', 'balanceBaseUrl'])
   for (const key of Object.keys(value)) {
     if (!ALLOWED.has(key)) throw new Error(`patch contains an unknown setting: ${key}`)
   }
@@ -91,6 +109,28 @@ export function sanitizeConfigPatch(value) {
   }
   if (value.models !== undefined) {
     patch.models = sanitizeModels(value.models)
+  }
+  if (value.balanceEnabled !== undefined) {
+    if (typeof value.balanceEnabled !== 'boolean') throw new Error('balanceEnabled must be a boolean')
+    patch.balanceEnabled = value.balanceEnabled
+  }
+  if (value.balanceRefreshMinutes !== undefined) {
+    const minutes = value.balanceRefreshMinutes
+    if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes < 1 || minutes > 1440 || !Number.isInteger(minutes)) {
+      throw new Error('balanceRefreshMinutes must be an integer between 1 and 1440')
+    }
+    patch.balanceRefreshMinutes = minutes
+  }
+  if (value.balanceBaseUrl !== undefined) {
+    if (typeof value.balanceBaseUrl !== 'string' || value.balanceBaseUrl.trim() === '') {
+      throw new Error('balanceBaseUrl must be a non-empty string')
+    }
+    let parsed
+    try { parsed = new URL(value.balanceBaseUrl) } catch { parsed = null }
+    if (!parsed || !['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('balanceBaseUrl must be an http(s) URL')
+    }
+    patch.balanceBaseUrl = value.balanceBaseUrl.trim().replace(/\/+$/, '')
   }
   return patch
 }
@@ -123,9 +163,13 @@ function sanitizeModels(value) {
 
 /** 配置端点的 GET 载荷：当前设置 + 官方默认定价（只读）。 */
 export function configPayload(settings) {
+  const value = settings.get()
   return {
-    enabled: settings.get().enabled !== false,
-    models: settings.get().models ?? [],
+    enabled: value.enabled !== false,
+    models: value.models ?? [],
+    balanceEnabled: value.balanceEnabled ?? defaults.balanceEnabled,
+    balanceRefreshMinutes: value.balanceRefreshMinutes ?? defaults.balanceRefreshMinutes,
+    balanceBaseUrl: value.balanceBaseUrl ?? defaults.balanceBaseUrl,
     defaults: DEFAULT_PRICES,
   }
 }
@@ -170,9 +214,38 @@ export function createConfigHandler(settings) {
   }
 }
 
+/** 通过 DSH 凭据服务解析 DEEPSEEK_API_KEY；无服务时回退环境变量。 */
+async function resolveDeepseekApiKey(ctx) {
+  const credentials = typeof ctx.get === 'function' ? ctx.get('credentials') : undefined
+  if (credentials !== undefined && typeof credentials.resolve === 'function') {
+    const hit = await credentials.resolve('DEEPSEEK_API_KEY')
+    if (hit !== undefined) return hit.value
+  }
+  const ambient = process.env.DEEPSEEK_API_KEY
+  return ambient && ambient.length > 0 ? ambient : undefined
+}
+
 export function apply(ctx, config = {}) {
   if (config.enabled === false) return
   if (typeof ctx.inject !== 'function') return
+
+  const base = publicConfig(config)
+
+  // 余额服务：供桌宠等订阅方读取余额快照。服务始终提供，是否拉取由
+  // balanceEnabled 设置决定；关闭时订阅方收到 { status: 'disabled' }。
+  let balanceService
+  if (typeof ctx.provide === 'function') {
+    balanceService = createBalanceService({
+      getApiKey: () => resolveDeepseekApiKey(ctx),
+      baseUrl: base.balanceBaseUrl ?? process.env.DEEPSEEK_BASE_URL ?? DEFAULT_BALANCE_BASE_URL,
+      refreshMinutes: base.balanceRefreshMinutes ?? DEFAULT_BALANCE_REFRESH_MINUTES,
+      logger: ctx.logger ?? console,
+    })
+    ctx.provide(BALANCE_SERVICE, balanceService)
+    if (typeof ctx.effect === 'function') {
+      ctx.effect(() => () => balanceService.dispose())
+    }
+  }
 
   // tokenCost 投影：纯 token 折叠，无配置。
   ctx.inject(['sessionProjections'], (projectionCtx) => {
@@ -185,9 +258,31 @@ export function apply(ctx, config = {}) {
   // 设置命名空间 + 本地配置端点（设置页读写）。
   ctx.inject(['settings'], (settingsCtx) => {
     const settings = settingsCtx.settings?.register?.('dsh-deepseek-cost', Config, {
-      base: publicConfig(config),
+      base,
       applies: 'live',
-    }) ?? localSettingsScope(publicConfig(config))
+    }) ?? localSettingsScope(base)
+
+    const applyBalanceSettings = (next) => {
+      if (!balanceService) return
+      balanceService.setOptions({
+        baseUrl: next.balanceBaseUrl ?? process.env.DEEPSEEK_BASE_URL ?? DEFAULT_BALANCE_BASE_URL,
+        refreshMinutes: next.balanceRefreshMinutes ?? DEFAULT_BALANCE_REFRESH_MINUTES,
+      })
+      if (next.balanceEnabled === true) {
+        balanceService.start()
+      } else {
+        balanceService.stop()
+      }
+    }
+
+    applyBalanceSettings(settings.get())
+    const unwatchBalance = typeof settings.watch === 'function'
+      ? settings.watch((next) => applyBalanceSettings(next))
+      : undefined
+    if (unwatchBalance && typeof settingsCtx.effect === 'function') {
+      settingsCtx.effect(() => () => unwatchBalance())
+    }
+
     ctx.inject(['webServer'], (httpCtx) => {
       httpCtx.effect(
         () => httpCtx.webServer.register({ kind: 'exact', path: CONFIG_ENDPOINT, handler: createConfigHandler(settings) }),

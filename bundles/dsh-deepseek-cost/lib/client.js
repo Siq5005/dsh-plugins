@@ -240,13 +240,23 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
 
   function SettingsPage() {
     const cfg = usePricing()
-    const [draft, setDraft] = React.useState(null) // { enabled, models }
+    const [draft, setDraft] = React.useState(null) // { enabled, models, balanceEnabled, balanceRefreshMinutes, balanceBaseUrl }
     const [status, setStatus] = React.useState('loading') // loading | ready | saving | saved | error
     const [errorText, setErrorText] = React.useState('')
 
+    const balanceDraft = (cfg2) => ({
+      balanceEnabled: cfg2.balanceEnabled === true,
+      balanceRefreshMinutes: cfg2.balanceRefreshMinutes ?? 15,
+      balanceBaseUrl: cfg2.balanceBaseUrl ?? '',
+    })
+
     React.useEffect(() => {
       if (cfg !== null) {
-        setDraft({ enabled: cfg.enabled !== false, models: (cfg.models ?? []).map((m) => ({ ...m })) })
+        setDraft({
+          enabled: cfg.enabled !== false,
+          models: (cfg.models ?? []).map((m) => ({ ...m })),
+          ...balanceDraft(cfg),
+        })
         setStatus('ready')
       }
     }, [cfg])
@@ -279,6 +289,41 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
         .catch((error) => { setErrorText(error.message); setStatus('error') })
     }
 
+    const patchBalance = (patch) => {
+      setStatus('saving')
+      setErrorText('')
+      fetchConfig('PATCH', patch)
+        .then((cfg2) => {
+          applyPricing(cfg2)
+          setDraft((prev) => ({ ...prev, ...balanceDraft(cfg2) }))
+          setStatus('saved')
+        })
+        .catch((error) => { setErrorText(error.message); setStatus('error') })
+    }
+
+    const saveBalance = () => {
+      const minutes = Number(draft.balanceRefreshMinutes)
+      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 1440 || !Number.isInteger(minutes)) {
+        setErrorText('余额刷新间隔必须是 1–1440 的整数分钟')
+        setStatus('error')
+        return
+      }
+      const baseUrl = String(draft.balanceBaseUrl ?? '').trim()
+      if (baseUrl !== '') {
+        let parsed
+        try { parsed = new URL(baseUrl) } catch { parsed = null }
+        if (!parsed || !['http:', 'https:'].includes(parsed.protocol)) {
+          setErrorText('余额接口 base URL 必须是 http(s) 地址')
+          setStatus('error')
+          return
+        }
+      }
+      patchBalance({
+        balanceRefreshMinutes: minutes,
+        ...(baseUrl === '' ? {} : { balanceBaseUrl: baseUrl }),
+      })
+    }
+
     const saveModels = () => {
       const cleaned = []
       for (const m of draft.models) {
@@ -303,7 +348,11 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
       fetchConfig('PATCH', { models: cleaned })
         .then((cfg2) => {
           applyPricing(cfg2)
-          setDraft({ enabled: cfg2.enabled !== false, models: (cfg2.models ?? []).map((m) => ({ ...m })) })
+          setDraft({
+            enabled: cfg2.enabled !== false,
+            models: (cfg2.models ?? []).map((m) => ({ ...m })),
+            ...balanceDraft(cfg2),
+          })
           setStatus('saved')
         })
         .catch((error) => { setErrorText(error.message); setStatus('error') })
@@ -347,6 +396,41 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
         ),
         React.createElement('span', { style: SMALL_STYLE },
           '高峰时段为北京时间 9:00–12:00 与 14:00–18:00；空闲时段为高峰半价。'),
+      ),
+      React.createElement('div', { style: CARD_STYLE },
+        React.createElement('div', null,
+          React.createElement('div', { style: LABEL_STYLE }, 'DeepSeek 账号余额（桌宠气泡）'),
+          React.createElement('span', { style: SMALL_STYLE },
+            '打开后，费用统计插件会通过当前 DEEPSEEK_API_KEY 定期查询官方余额，并把结果推送给桌宠（仅显示金额，不暴露密钥）。'),
+        ),
+        React.createElement('label', { style: ROW_STYLE_2 },
+          React.createElement('input', {
+            type: 'checkbox', checked: draft.balanceEnabled === true, disabled: status === 'saving',
+            onChange: (event) => patchBalance({ balanceEnabled: event.target.checked }),
+          }),
+          React.createElement('span', { style: LABEL_STYLE }, '启用余额获取'),
+        ),
+        React.createElement('div', { style: ROW_STYLE_2 },
+          React.createElement('span', { style: SMALL_STYLE }, '刷新间隔（分钟）'),
+          React.createElement('input', {
+            type: 'number', min: 1, max: 1440, step: 1, value: draft.balanceRefreshMinutes ?? 15,
+            disabled: status === 'saving' || draft.balanceEnabled !== true,
+            style: { ...INPUT_STYLE, minWidth: 84 },
+            onChange: (event) => setDraft((prev) => ({ ...prev, balanceRefreshMinutes: event.target.value })),
+          }),
+          React.createElement('span', { style: SMALL_STYLE }, '接口 base URL（可选）'),
+          React.createElement('input', {
+            type: 'text', placeholder: 'https://api.deepseek.com', value: draft.balanceBaseUrl ?? '',
+            disabled: status === 'saving' || draft.balanceEnabled !== true,
+            style: { ...INPUT_STYLE, minWidth: 220 },
+            onChange: (event) => setDraft((prev) => ({ ...prev, balanceBaseUrl: event.target.value })),
+          }),
+          React.createElement('button', {
+            style: { padding: '4px 12px', borderRadius: 8, cursor: 'pointer' },
+            disabled: status === 'saving' || draft.balanceEnabled !== true,
+            onClick: saveBalance,
+          }, '保存余额设置'),
+        ),
       ),
       React.createElement('div', { style: CARD_STYLE },
         React.createElement('div', null,

@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.js",
     "./client": "./lib/client.js",
+    "./balance": "./src/balance.js",
     "./pricing": "./src/pricing.js",
     "./cost-projection": "./src/cost-projection.js",
     "./package.json": "./package.json"

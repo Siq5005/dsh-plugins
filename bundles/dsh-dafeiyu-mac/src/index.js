@@ -21,6 +21,7 @@ import {
 export const name = 'dsh-dafeiyu-mac'
 export const inject = ['sessions']
 export const CONFIG_ENDPOINT = '/plugins/dsh-dafeiyu-mac/config'
+export const BALANCE_SERVICE = 'dshDeepseekBalance'
 export const Config = Schema.object({
   enabled: Schema.boolean().default(true).description('启用桌面大肥鱼'),
   scale: Schema.number().min(0.7).max(1.4).step(0.05).default(1).role('slider').description('角色大小'),
@@ -125,6 +126,29 @@ export function createConfigHandler(settings) {
   }
 }
 
+function formatBalance(value) {
+  if (!Number.isFinite(value)) return '--'
+  const text = value < 1 ? value.toFixed(4) : value.toFixed(2)
+  return text.replace(/\.?0+$/, '') || '0'
+}
+
+function balanceMessage(snapshot) {
+  if (snapshot?.status !== 'ok') {
+    // 非成功态清空气泡，避免把错误/密钥状态渲染到桌面。
+    return createMessage(CompanionMessageKind.BALANCE, {
+      status: snapshot?.status ?? 'disabled',
+      message: '',
+      detail: '',
+    })
+  }
+  const time = new Date(snapshot.updatedAt ?? Date.now()).toLocaleTimeString('zh-CN', { hour12: false })
+  return createMessage(CompanionMessageKind.BALANCE, {
+    status: 'ok',
+    message: `余额 ¥${formatBalance(snapshot.totalBalance)}`,
+    detail: `DeepSeek 账号余额 · ${snapshot.currency ?? 'CNY'} · ${time}`,
+  })
+}
+
 function mount(ctx, config = {}, eventCtx = ctx) {
   const logger = ctx.logger ?? console
   const base = publicConfig(config)
@@ -141,6 +165,18 @@ function mount(ctx, config = {}, eventCtx = ctx) {
     bridge?.stop(reason)
     bridge = undefined
     reducer = undefined
+  }
+
+  const subscribeBalance = () => {
+    if (typeof eventCtx.inject !== 'function') return
+    eventCtx.inject([BALANCE_SERVICE], (balanceCtx) => {
+      const service = balanceCtx[BALANCE_SERVICE]
+      if (!service || typeof service.subscribe !== 'function') return
+      const off = service.subscribe((snapshot) => {
+        if (bridge) bridge.send(balanceMessage(snapshot))
+      })
+      balanceCtx.effect?.(() => () => off())
+    })
   }
 
   const restartRuntime = (next) => {
@@ -200,6 +236,7 @@ function mount(ctx, config = {}, eventCtx = ctx) {
       message: '我在这儿等新任务哦',
       detail: 'DSH · 等待下一次任务',
     }))
+    subscribeBalance()
     logger.info?.('dsh-dafeiyu-mac companion bridge started')
   }
 
@@ -261,6 +298,7 @@ export function apply(ctx, config = {}) {
 }
 
 export {
+  balanceMessage,
   CompanionMessageKind,
   CompanionReducer,
   CompanionState,

@@ -27,6 +27,15 @@ test('assertCompanionMessage accepts valid state and rejects unknown state', () 
   assert.throws(() => assertCompanionMessage(bad), /Unknown companion state/)
 })
 
+test('BALANCE message round-trips without a companion state', () => {
+  const message = createMessage(CompanionMessageKind.BALANCE, {
+    status: 'ok', message: '余额 ¥12.34', detail: 'DeepSeek 账号余额 · CNY',
+  })
+  assert.equal(message.kind, 'balance')
+  assert.doesNotThrow(() => assertCompanionMessage(message))
+  assert.equal(JSON.parse(encodeMessage(message)).kind, 'balance')
+})
+
 test('encodeMessage emits a single JSON line', () => {
   const line = encodeMessage(createMessage(CompanionMessageKind.PING))
   assert.equal(line.endsWith('\n'), true)
