@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { CompanionReducer, toolActivity } from '../src/companion-reducer.js'
+import { CompanionReducer, isUserQuestionTool, toolActivity } from '../src/companion-reducer.js'
 import { CompanionMessageKind, CompanionState } from '../src/protocol.js'
 
 const session = { header: { id: 's1', cwd: '/work/proj' } }
@@ -86,6 +86,36 @@ test('most urgent session wins across sessions', () => {
   })
   assert.equal(outputs[0].state, CompanionState.WAITING)
   assert.equal(outputs[0].sessionId, 'w1')
+})
+
+test('approval/asked enters WAITING and approval/decided resumes', () => {
+  const reducer = new CompanionReducer()
+  reducer.handle(session, { type: 'turn/start', seq: 1 })
+  reducer.handle(session, {
+    type: 'tool/call', seq: 2, data: { name: 'bash', message: { source: { callId: 'c1' } } },
+  })
+  const asked = reducer.handle(session, {
+    type: 'approval/asked', seq: 3, data: { id: 'a1', toolName: 'bash' },
+  })
+  const state = asked.find((m) => m.kind === CompanionMessageKind.STATE)
+  assert.equal(state.state, CompanionState.WAITING)
+  assert.equal(state.stage, '等待审批')
+
+  // id 不匹配：不处理
+  const wrongId = reducer.handle(session, { type: 'approval/decided', seq: 4, data: { id: 'other' } })
+  assert.equal(wrongId.length, 0)
+
+  // id 匹配：恢复工作状态（bash 工具仍在 openTools → WORKING）
+  const decided = reducer.handle(session, { type: 'approval/decided', seq: 5, data: { id: 'a1' } })
+  const resumed = decided.filter((m) => m.kind === CompanionMessageKind.STATE)
+  assert.equal(resumed.at(-1).state, CompanionState.WORKING)
+})
+
+test('approval-related tool names are treated as user-question tools', () => {
+  for (const name of ['approve_action', 'request_approval', 'permission_check', 'authorize']) {
+    assert.equal(isUserQuestionTool(name), true, `${name} should match`)
+  }
+  assert.equal(isUserQuestionTool('bash'), false)
 })
 
 test('disposeSession removes the session record', () => {

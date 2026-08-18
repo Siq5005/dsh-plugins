@@ -145,7 +145,9 @@ window.__ModuleLoader__.load({ id: 'dsh-dafeiyu-mac', factory: (require) => {
 
   function apply(ctx) {
     ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-      name: 'settings.plugin.item', id: 'dsh-dafeiyu-mac', order: 30,
+      // keyed 槽 settings.plugin.item 契约要求 key 字段（DSH rc.7+）；
+      // 同时保留 id 兼容旧版。
+      name: 'settings.plugin.item', key: 'dsh-dafeiyu-mac', id: 'dsh-dafeiyu-mac', order: 30,
       inject: () => ({}),
     }, BigFishCard))
   }
