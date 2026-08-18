@@ -21,6 +21,7 @@ class Clip:
     frame_ms: int
     loop: bool
     motion: str | None = None
+    scale: float = 1.0
 
 
 class AnimationModel:
@@ -32,12 +33,14 @@ class AnimationModel:
                 frame_ms=int(value["frameMs"]),
                 loop=bool(value["loop"]),
                 motion=value.get("motion"),
+                scale=float(value.get("scale", 1.0)),
             )
             for name, value in manifest["clips"].items()
         }
         self.state_map = dict(manifest["stateMap"])
         self.working_activity_map = dict(manifest.get("workingActivityMap", {}))
         self.idle_micro_clips = tuple(manifest.get("idleMicroClips", ()))
+        self.photo_wall = list(manifest.get("photoWall", []))
         self.base_state = "IDLE"
         self.base_activity: str | None = None
         self.base_clip_name = self.state_map["IDLE"]
@@ -45,6 +48,8 @@ class AnimationModel:
         self.active_clip_name = self.base_clip_name
         self.frame_index = 0
         self.frame_elapsed_ms = 0
+        self.sequence: list[str] = []
+        self.seq_index = 0
 
     def apply_state(self, state: str, activity: str | None = None) -> None:
         if state not in STATES:
@@ -53,6 +58,7 @@ class AnimationModel:
         self.base_activity = activity
         self.base_clip_name = self._clip_for(state, activity)
         self.overlay_clip_name = None
+        self.sequence = []
         self._activate(self.base_clip_name)
 
     def play_overlay(self, clip_name: str) -> None:
@@ -64,6 +70,15 @@ class AnimationModel:
         if self.overlay_clip_name is not None:
             self.overlay_clip_name = None
             self._activate(self.base_clip_name)
+
+    def play_sequence(self, clip_names: list[str]) -> None:
+        """按顺序播放一组 clip（photoWall 场景），播完回落到基础状态。"""
+        if not clip_names or clip_names[0] not in self.clips:
+            return
+        self.sequence = list(clip_names)
+        self.seq_index = 0
+        self.overlay_clip_name = None
+        self._activate(self.sequence[0])
 
     def tick(self, delta_ms: int) -> None:
         clip = self.clips[self.active_clip_name]
@@ -77,6 +92,14 @@ class AnimationModel:
             elif self.overlay_clip_name is not None:
                 # 单次 overlay 播完回落到当前基础状态。
                 self.clear_overlay()
+            elif self.sequence:
+                if self.seq_index + 1 < len(self.sequence):
+                    self.seq_index += 1
+                    self._activate(self.sequence[self.seq_index])
+                else:
+                    # 序列播完：回落基础状态。
+                    self.sequence = []
+                    self._activate(self.base_clip_name)
             else:
                 self.frame_elapsed_ms = 0
                 break

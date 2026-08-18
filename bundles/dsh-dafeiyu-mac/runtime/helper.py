@@ -167,6 +167,10 @@ class PetWindow(QWidget):
         self._pulse_until_ms = 0
         self._pulse_resume: tuple[str, str | None] | None = None
         self._pet_rect: tuple[int, int, int, int] | None = None
+        # 动画扩展：走动 / 入场 / 提问表情。
+        self._walk: dict[str, Any] | None = None
+        self._anim_started = False
+        self._question_phase = "none"
 
         self.setWindowFlags(self._flags_for(config["locked"]))
         self.setAttribute(self.Qt.WA_TranslucentBackground)
@@ -277,9 +281,12 @@ class PetWindow(QWidget):
     def _handle(self, message: dict[str, Any]) -> None:
         kind = message.get("kind")
         if kind == "state":
-            self.model.apply_state(message.get("state", "IDLE"), message.get("activity"))
+            state = message.get("state", "IDLE")
+            self.model.apply_state(state, message.get("activity"))
             self._pulse_until_ms = 0
+            self._question_phase = "none"
             self._set_bubble(message)
+            self._maybe_play_sequence(state, message.get("activity"))
         elif kind == "pulse":
             self.model.apply_state(message.get("state", "IDLE"), message.get("resumeActivity"))
             self._pulse_until_ms = time.monotonic() * 1000 + int(message.get("ttlMs", 1500))
@@ -294,6 +301,8 @@ class PetWindow(QWidget):
             self._set_bubble(message)
         elif kind == "balance":
             self._set_balance(message)
+        elif kind == "question":
+            self._apply_question(message)
         elif kind == "config":
             self.config["scale"] = float(message.get("scale", self.config["scale"]))
             self.config["bubble_scale"] = float(message.get("bubbleScale", self.config["bubble_scale"]))
@@ -364,16 +373,102 @@ class PetWindow(QWidget):
             self.bubble.move(x, y)
         self.bubble.show()
 
+    # ---- 动画扩展：场景序列 / 提问 / 走动 / 入场 ----------------------
+    def _wall_clips(self, wall_id: str) -> list[str]:
+        for group in self.model.photo_wall:
+            if group.get("id") == wall_id:
+                return list(group.get("clips", []))
+        return []
+
+    def _maybe_play_sequence(self, state: str, activity: str | None = None) -> None:
+        """状态进入时按 photoWall 场景播放一组 clip（搜索/工作/提问）。"""
+        if state == "WORKING":
+            key = "searching" if activity == "searching" else "working"
+        elif state == "WAITING":
+            key = "question"
+        else:
+            return
+        clips = self._wall_clips(key)
+        if clips:
+            self.model.play_sequence(clips)
+
+    def _apply_question(self, message: dict[str, Any]) -> None:
+        """收到 QUESTION：播放 question 表情并把问题文本放进气泡。"""
+        question = message.get("question") or ""
+        self._question_phase = "asked"
+        self._question_phase_ms = time.monotonic() * 1000
+        self.model.play_overlay("question")
+        if question:
+            self._set_bubble({"message": question, "detail": "等你回答"})
+
+    def _maybe_enter(self) -> None:
+        if self._anim_started:
+            return
+        self._anim_started = True
+        # 已有真实状态时跳过入场动画（避免入场覆盖状态序列）。
+        if self.model.base_state != "IDLE":
+            return
+        clips = self._wall_clips("enter")
+        if clips:
+            self.model.play_sequence(clips)
+
+    def _start_walk(self) -> None:
+        """空闲巡逻：向左/右走一小段，窗口随之平移（不持久化位置）。"""
+        if self._walk is not None or self.config["reduced_motion"]:
+            return
+        if self.model.base_state != "IDLE" or self.model.overlay_clip_name is not None:
+            return
+        direction = random.choice([-1, 1])
+        distance = random.randint(60, 140)
+        side = "left" if direction < 0 else "right"
+        self._walk = {"dir": direction, "remaining": float(distance)}
+        self.model.play_sequence([f"walk_start_{side}", f"walk_side_{side}"])
+
+    def _tick_walk(self, delta_ms: int) -> None:
+        walk = self._walk
+        if walk is None:
+            return
+        speed = 0.16  # px/ms
+        step = walk["dir"] * speed * delta_ms
+        screen = self.QApplication.primaryScreen()
+        if screen is not None:
+            geo = screen.availableGeometry()
+            new_x = min(max(self.x() + step, geo.x()), geo.right() - self.BASE_W + 1)
+            step = new_x - self.x()
+            if abs(step) < 0.5:
+                # 贴边走不动了：结束走动。
+                self._finish_walk()
+                return
+        else:
+            new_x = self.x() + step
+        self.move(int(new_x), self.y())
+        walk["remaining"] -= abs(step)
+        if walk["remaining"] <= 0:
+            self._finish_walk()
+
+    def _finish_walk(self) -> None:
+        walk = self._walk
+        self._walk = None
+        if walk is None:
+            return
+        side = "left" if walk["dir"] < 0 else "right"
+        # 停步动画作为 overlay 播放，播完回落待机。
+        self.model.play_overlay(f"walk_stop_{side}")
+        self._schedule_idle_micro()
+
     # ---- 动画 -----------------------------------------------------
     def _on_anim_tick(self) -> None:
         now = time.monotonic() * 1000
         delta = now - self._clock_ms
         self._clock_ms = now
+        delta = max(1, min(int(delta), 200))
         # PULSE（成功/失败）是带 TTL 的瞬态状态：过期后回落到 resume 状态，
         # 避免"完成/出错"动画无限循环。
         if self._pulse_until_ms and now >= self._pulse_until_ms:
             self._expire_pulse()
-        self.model.tick(max(1, min(int(delta), 200)))
+        self._maybe_enter()
+        self._tick_walk(delta)
+        self.model.tick(delta)
         self._render_pet()
         # 动画位移会让角色移动，气泡保持贴在其上方。
         if self.bubble.isVisible():
@@ -398,10 +493,12 @@ class PetWindow(QWidget):
             return
 
         motion = self.model.motion
-        scale = self.config["scale"]
+        # clip 自带缩放（如坐姿 1.08）叠加上用户 scale。
+        scale = self.config["scale"] * self.model.clips[self.model.active_clip_name].scale
         if self.config["reduced_motion"]:
             motion = None
         phase = (self._clock_ms % 1000) / 1000.0
+        phase_sec = self._clock_ms / 1000.0
         dx = dy = 0.0
         if motion == "bounce":
             dy = -14 * abs(math.sin(phase * math.tau))
@@ -409,6 +506,14 @@ class PetWindow(QWidget):
             dx = 5 * math.sin(phase * math.tau * 2)
         elif motion == "dizzy":
             dx = 3 * math.sin(phase * math.tau * 3)
+        elif motion == "think":
+            dy = 3 * math.sin(phase_sec * 2.8)
+        elif motion == "work":
+            dx = 3 * math.sin(phase_sec * 5.4)
+        elif motion == "wait":
+            dy = 1 * math.sin(phase_sec * 1.8)
+        elif motion == "float":
+            dy = 4 * math.sin(phase_sec * 3.0)
 
         w = max(1, int(self.PET_W * scale))
         h = max(1, int(self.PET_H * scale))
@@ -446,7 +551,11 @@ class PetWindow(QWidget):
 
     def _play_idle_micro(self) -> None:
         if self.model.base_state == "IDLE" and not self.model.overlay_clip_name:
-            self.model.play_overlay(random.choice(self.model.idle_micro_clips))
+            if random.random() < 0.25:
+                # 约 1/4 概率触发走动巡逻。
+                self._start_walk()
+            else:
+                self.model.play_overlay(random.choice(self.model.idle_micro_clips))
         self._schedule_idle_micro()
 
     # ---- 锁定 / 拖拽 / 右键 ------------------------------------------
@@ -461,6 +570,9 @@ class PetWindow(QWidget):
             return
         if event.button() == self.Qt.LeftButton:
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            # 拖拽细节：抓取姿势（如有素材）。
+            if "dragging_hold" in self.model.clips:
+                self.model.play_overlay("dragging_hold")
 
     def mouseMoveEvent(self, event) -> None:  # noqa: N802
         if self.config["locked"] or self._drag_offset is None:
@@ -468,15 +580,33 @@ class PetWindow(QWidget):
         self.move(event.globalPosition().toPoint() - self._drag_offset)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        dragging = self._drag_offset is not None
         self._drag_offset = None
         self._persist_position()
+        if dragging and "dragging_release" in self.model.clips:
+            # 松手：播放放下动画（单次，播完回落）。
+            self.model.play_overlay("dragging_release")
+
+    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802
+        # 双击戳一戳。
+        if self.config["locked"]:
+            return
+        if "poke" in self.model.clips:
+            self.model.play_overlay("poke")
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802
         if self.config["locked"]:
             return
         menu = self.QMenu(self)
+        pet_action = self.QAction("摸摸头", self)
+        pet_action.triggered.connect(lambda: self.model.play_overlay("head_pat"))
+        poke_action = self.QAction("戳一戳", self)
+        poke_action.triggered.connect(lambda: self.model.play_overlay("poke"))
         quit_action = self.QAction("退出大肥鱼", self)
         quit_action.triggered.connect(self._quit)
+        menu.addAction(pet_action)
+        menu.addAction(poke_action)
+        menu.addSeparator()
         menu.addAction(quit_action)
         menu.exec(event.globalPos())
 

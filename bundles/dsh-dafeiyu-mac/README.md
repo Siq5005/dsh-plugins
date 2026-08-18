@@ -74,10 +74,16 @@ python3 runtime/helper.py              # 可视化模式（需 PySide6）
 - 代码（`src/`、`runtime/`、`lib/`）为复刻实现，结构参考上游（MIT），
   上游许可文本见 [LICENSE-UPSTREAM.md](LICENSE-UPSTREAM.md)。
 
+## 动画系统（2026-08-18 扩展）
+
+- **场景序列**（photoWall）：搜索时翻书查找全过程、工作时坐姿入场并保持坐姿、提问时出现 question 表情；入场动画（开门走进来）。
+- **空闲巡逻**：待机一段时间后随机向左/右走一小段再停下（不改变记住的位置）。
+- **互动**：双击戳一戳；右键菜单"摸摸头 / 戳一戳"；拖拽时抓取/放下姿势。
+- 素材：`searching/`、`working/`、`enter/`、`question/`、`answer/`、拖拽细节帧来自上游 PR #23（CC BY-SA 4.0，见 ASSET_LICENSE.md）。
+
 ## 已知限制
 
 - 内置打包 helper 为 **darwin-arm64** 单文件（PyInstaller onefile，约 39MB）；
   其他平台需自行 `bash scripts/build-helper.sh` 构建（详见系统要求）。
 - onefile 首启需解压运行时（约 5~8 秒），属 PyInstaller 单文件的固有代价。
-- 未实现走动动画、摸头/戳等轻互动（计划为下个版本开发项）。
 - 需要 pyobjc 才能在所有桌面（Spaces）显示与隐藏 Dock 图标——已包含在打包产物内。

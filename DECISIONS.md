@@ -220,11 +220,17 @@
 ## D-013 dsh-dafeiyu-mac 下个版本开发项：动画扩展（上游 PR #23）
 
 - **日期**：2026-08-18
-- **状态**：已采纳（Adopted，列为下个版本开发项，未开工）
+- **状态**：**已完成（2026-08-18）**——选择性移植（不等 PR 合并，改动独立于上游 main）
 - **背景**：上游 `QCYTSN/dsh-dafeiyu` 的 PR [#23](https://github.com/QCYTSN/dsh-dafeiyu/pull/23)（作者 Serendipity-wu02，**开放中**）扩展桌宠动画系统：新增 searching（翻书查找 8 帧过程）、working 坐姿工作（seat_01~05 + 情绪帧）、enter/leave 出入场、question/answer 提问回答、dragging 拖拽细节等约 30 张新素材；并重写 animation_model / helper / reducer 等核心文件（约 3400 行 diff）。素材经确认协议为 **CC-BY-SA 4.0**。
 - **决策**：
   1. 列入 dsh-dafeiyu-mac 下个版本开发项（与走动动画、摸头/戳互动同批）。
-  2. **等待 PR 合并进上游 main 后再整体同步**——与 keyed slot / approval 修复的同步路径一致；合并前不跟进草稿（PR 为重构式改动，与当前 main 基线差异大）。
-  3. 素材许可：CC-BY-SA 4.0，同步时需保留署名并遵守相同方式共享（详见 PR 素材来源）。
-  4. 追踪：GitHub issue/PR 订阅 REST API 已废弃（PUT/GET subscriptions 均 404），无法 API watch；需在 PR 页面手动 Subscribe 或按本条目 URL 定期检查状态。
-- **备注**：同步时基线为上游 main（我们已同步的 keyed slot / approval 修复都在 main 上）；若仅想先要个别动作，可选择性移植素材 + clip（需符合 CC-BY-SA 4.0）。
+  2. **选择性移植**（2026-08-18 改）：PR 未合并，但用户要求直接动手；只移植素材/动画能力到我们自己的架构（PetWindow 已重构、可测试），不照搬其 5 文件重构（其基线为更新的 main）。
+  3. 素材许可：CC-BY-SA 4.0，同步时需保留署名并遵守相同方式共享（已更新 `ASSET_LICENSE.md` 记录 PR #23 来源）。
+  4. 追踪：GitHub issue/PR 订阅 REST API 已废弃（404），无法 API watch；按 PR URL 定期检查。
+- **完成（2026-08-18）**：
+  - 素材：拷贝 PR #23 全部新增帧（79 张 PNG）到 `assets/pet/`；`leave` 组素材 PR 未上传，从 manifest 移除（暂不做退场）；`dragging_238.png` 从 main 恢复（PR 误删）。
+  - `animation_model.py`：Clip 增加 `scale` 字段；新增 `play_sequence` 场景序列（photoWall），非 loop clip 播完自动推进/回落。
+  - `protocol.js` / reducer：新增 `QUESTION` 消息（提问文本下发气泡）；`isUserQuestionTool` 改为 **token 级匹配**（修复 #19 正则把 review/allow/permission 等普通工具误判为等待用户的问题）。
+  - `helper.py`：场景序列播放（searching 翻书 / working 坐姿 / question 表情）、入场动画（enter）、空闲巡逻走动（窗口平移、不持久化位置）、双击戳/右键摸头、拖拽抓取/放下姿势、补全 think/work/wait/float motion、clip.scale 渲染。
+  - 验证：离屏 8 项断言通过；真实窗口冒烟（翻书→坐姿→提问→待命）通过；JS 测试 20/20；helper 二进制重新打包（45MB）。
+- **备注**：`leave`（退场）素材缺失，等上游补传或 PR 合并后再加；上游若合入 PR #23 的 5 文件重构，可再评估是否跟进其全部编排逻辑。

@@ -29,3 +29,12 @@ Source provenance and the fuller notice are documented in:
 
 - https://github.com/QCYTSN/ds-local-pet/blob/main/ASSET_LICENSE.md
 - https://github.com/1190fasheqi/dafeiyu-pet
+
+## Additional assets (2026-08-18)
+
+The expanded animation frames under `assets/pet/searching/`, `assets/pet/working/`,
+`assets/pet/enter/`, `assets/pet/question/`, `assets/pet/answer/`, and the drag
+detail frames under `assets/pet/dragging/` were contributed by Serendipity-wu02
+via [QCYTSN/dsh-dafeiyu#23](https://github.com/QCYTSN/dsh-dafeiyu/pull/23)
+and are shared under the same **CC BY-SA 4.0** license. When reusing these,
+retain the upstream attribution and share under the same terms.

@@ -38,7 +38,10 @@ test('state flow: turn/start -> tool/call -> tool/result -> turn/end(success)', 
 test('waiting state on user-question tool and resume on user/message', () => {
   const outputs = runSequence([
     { session, event: { type: 'turn/start', seq: 1 } },
-    { session, event: { type: 'tool/call', seq: 2, data: { name: 'ask_user_question', message: { source: { callId: 'q1' } } } } },
+    { session, event: {
+      type: 'tool/call', seq: 2,
+      data: { name: 'ask_user_question', arguments: '{"questions":[{"question":"要继续吗？"}]}', message: { source: { callId: 'q1' } } },
+    } },
     { session, event: { type: 'user/message', seq: 3, data: { callId: 'q1' } } },
   ])
   const states = outputs.filter((m) => m.kind === CompanionMessageKind.STATE)
@@ -47,6 +50,10 @@ test('waiting state on user-question tool and resume on user/message', () => {
     CompanionState.WAITING,
     CompanionState.THINKING,
   ])
+  // 提问工具触发 QUESTION 消息（问题文本下发给桌宠气泡）。
+  const question = outputs.find((m) => m.kind === CompanionMessageKind.QUESTION)
+  assert.ok(question, 'expected a QUESTION message')
+  assert.equal(question.question, '要继续吗？')
 })
 
 test('todo/write emits TASK with progress', () => {
@@ -111,11 +118,14 @@ test('approval/asked enters WAITING and approval/decided resumes', () => {
   assert.equal(resumed.at(-1).state, CompanionState.WORKING)
 })
 
-test('approval-related tool names are treated as user-question tools', () => {
-  for (const name of ['approve_action', 'request_approval', 'permission_check', 'authorize']) {
+test('user-question tool names match token-level; ordinary tools do not', () => {
+  for (const name of ['ask_user_question', 'request_approval', 'approval_from_user', 'user_confirmation', 'ask_for_input']) {
     assert.equal(isUserQuestionTool(name), true, `${name} should match`)
   }
-  assert.equal(isUserQuestionTool('bash'), false)
+  // token 级匹配的改进：普通工具名不再被误判为等待用户。
+  for (const name of ['approve_action', 'permission_check', 'authorize', 'code_review', 'allowlist_files', 'bash']) {
+    assert.equal(isUserQuestionTool(name), false, `${name} should NOT match`)
+  }
 })
 
 test('disposeSession removes the session record', () => {

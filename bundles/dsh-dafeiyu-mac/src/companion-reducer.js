@@ -49,9 +49,54 @@ function toolCallIdOf(event, fallback = '') {
     ?? fallback)
 }
 
+/**
+ * 判断工具名是否属于"等待用户输入"类（提问/审批/确认）。
+ * token 级匹配（参考上游 PR #23）：按单词分词而非子串正则，
+ * 避免 review/allow/permission 等普通工具名被误判为等待用户。
+ */
 function isUserQuestionTool(name) {
   const value = String(name || '').toLowerCase()
-  return /ask.*user.*question|request.*user.*input|user[-_/.:]?questions?|approval|approve|permission|authorize|authori[sz]e|consent|review|allow/u.test(value)
+  const tokens = value.split(/[^a-z0-9]+/u).filter(Boolean)
+
+  const asks = new Set(['ask', 'asking', 'request', 'requests', 'requesting', 'require', 'requires', 'prompt', 'needs', 'need', 'seek', 'seeks', 'get', 'gets'])
+  const filler = new Set(['for', 'from', 'the', 'a', 'an'])
+  const userWords = new Set(['user', 'human', 'me'])
+  const nouns = new Set(['question', 'questions', 'input', 'answer', 'answers', 'decision', 'decisions', 'confirmation', 'approval', 'permission', 'authorization', 'authorisation', 'consent', 'clarify', 'clarification', 'help'])
+
+  const hasUserNoun = tokens.some((token, index) =>
+    userWords.has(token) && nouns.has(tokens[index + 1] ?? '')
+  )
+  const hasNounFromUser = tokens.some((token, index) =>
+    nouns.has(token) && tokens[index + 1] === 'from' && userWords.has(tokens[index + 2] ?? '')
+  )
+  const hasAsk = tokens.some((token, index) => {
+    if (!asks.has(token)) return false
+    let cursor = index + 1
+    while (cursor < tokens.length && (filler.has(tokens[cursor]) || userWords.has(tokens[cursor]))) {
+      if (userWords.has(tokens[cursor])) {
+        const next = tokens[cursor + 1]
+        return !next || nouns.has(next)
+      }
+      cursor += 1
+    }
+    return cursor < tokens.length && nouns.has(tokens[cursor])
+  })
+  return hasUserNoun || hasNounFromUser || hasAsk
+}
+
+function isQuestionTool(name) {
+  return String(name || '').toLowerCase() === 'ask_user_question'
+}
+
+function questionTextOf(event) {
+  const raw = event?.data?.arguments
+  if (typeof raw !== 'string') return undefined
+  try {
+    const args = JSON.parse(raw)
+    const questions = Array.isArray(args?.questions) ? args.questions : []
+    const texts = questions.map((item) => String(item?.question ?? '')).filter(Boolean)
+    return texts.length > 0 ? texts.join(' / ') : undefined
+  } catch { return undefined }
 }
 
 function sessionIdOf(session) {
@@ -176,7 +221,14 @@ export class CompanionReducer {
             toolName: name,
             message: statusCopy('waiting', event.seq),
           })
-          return this.#render()
+          const rendered = this.#render()
+          // 把问题文本下发给桌宠气泡（QUESTION 消息）。
+          return [...rendered, createMessage(CompanionMessageKind.QUESTION, {
+            sessionId: record.id,
+            sourceSeq: event.seq,
+            state: 'asked',
+            question: questionTextOf(event),
+          })]
         }
         const activity = toolActivity(name)
         this.#update(record, CompanionState.WORKING, {
