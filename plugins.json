@@ -56,6 +56,15 @@
       "added": "2026-08-18"
     },
     {
+      "name": "dsh-desktop-context-menu",
+      "description": "给 DSH Desktop 的 Electron 窗口加原生右键菜单：复制 / 粘贴 / 剪切 / 全选 / 后退 / 前进（Host-only，普通 Web profile 自动 no-op）",
+      "type": "bundle",
+      "path": "bundles/dsh-desktop-context-menu",
+      "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-desktop-context-menu\"",
+      "tags": ["desktop", "electron", "context-menu", "right-click", "native-menu"],
+      "added": "2026-08-18"
+    },
+    {
       "name": "@linxin666/dsh-liangshen",
       "description": "梁神模式：面向 DeepSeek V4 Pro 的两阶段锚定 agent 预设（首轮 Minimal 双工具锚定轨迹 → 自动切 Code Mode / PTC）。外部 npm 安装（dsh-web-ui 全家桶）",
       "type": "bundle",

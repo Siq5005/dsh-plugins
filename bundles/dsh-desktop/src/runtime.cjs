@@ -51,35 +51,8 @@ class ElectronDesktopRuntime {
       process.stderr.write('[dsh-desktop] window failed to load: ' + code + ' ' + description + '\n')
     })
     this.#window = win
-    this.#bindContextMenu(win)
     await win.loadURL(spec.url)
     if (!this.headless) await this.#mountTray(spec)
-  }
-
-  #bindContextMenu(win) {
-    win.webContents.on('context-menu', (event, params) => {
-      event.preventDefault()
-      const template = []
-      if (params.isEditable) {
-        if (params.editFlags.canCut) template.push({ role: 'cut' })
-        if (params.editFlags.canCopy) template.push({ role: 'copy' })
-        if (params.editFlags.canPaste) template.push({ role: 'paste' })
-        if (params.editFlags.canSelectAll) template.push({ role: 'selectAll' })
-      } else {
-        if (params.selectionText !== '') template.push({ role: 'copy' })
-        template.push({ role: 'selectAll' })
-      }
-      const history = win.webContents.navigationHistory
-      const canGoBack = history.canGoBack()
-      const canGoForward = history.canGoForward()
-      if (canGoBack || canGoForward) {
-        if (template.length > 0) template.push({ type: 'separator' })
-        if (canGoBack) template.push({ label: 'Back', click: () => history.goBack() })
-        if (canGoForward) template.push({ label: 'Forward', click: () => history.goForward() })
-      }
-      if (template.length === 0) return
-      Menu.buildFromTemplate(template).popup({ window: win })
-    })
   }
 
   async #mountTray(spec) {

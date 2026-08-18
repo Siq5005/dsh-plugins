@@ -1,0 +1,4 @@
+# Host-only bundle：给桌面窗口注入原生右键菜单。
+- insert:
+    - id: desktop-context-menu
+      name: dsh-desktop-context-menu

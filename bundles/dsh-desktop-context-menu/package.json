@@ -1,0 +1,33 @@
+{
+  "name": "dsh-desktop-context-menu",
+  "version": "0.1.0",
+  "description": "给 DSH Desktop 的 Electron 窗口加原生右键菜单：复制 / 粘贴 / 剪切 / 全选 / 后退 / 前进",
+  "author": "Siq5005",
+  "type": "commonjs",
+  "main": "index.cjs",
+  "exports": {
+    ".": "./index.cjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.cjs",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "desktop",
+    "context-menu",
+    "electron"
+  ],
+  "license": "MIT"
+}

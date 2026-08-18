@@ -182,4 +182,22 @@
 - **修复（agent-presets）**：`host.js` 的 `composeProfile` 起初漏了上游 `runProfile` 里的 `agent-presets` roots 注入，导致官方 shipped 预设（`code`/`cordis`/`minimal`/`standard`，位于 `@deepseek-ai/dsh/config/agent-presets/`）没被加载、只剩插件注册的 `liangshen`；已补 `composeEntries` + `SHIPPED_PRESET_ROOT` 注入，`smoke-profile` 验证 root 注入成功。
 - **遗留**：签名/公证、Windows 产物验证、托盘真图标（当前 `nativeImage.createEmpty()` 占位）。
 
+## D-011 右键菜单独立为 dsh-desktop-context-menu bundle
+
+- **日期**：2026-08-18
+- **状态**：已采纳（Adopted）
+- **背景**：右键菜单最初实现在 `dsh-desktop/src/runtime.cjs` 的 `ElectronDesktopRuntime` 内；用户要求作为独立插件落库，避免桌面壳本体承担可选交互能力。
+- **决策**：
+  - 新建 `bundles/dsh-desktop-context-menu/`：CommonJS Host-only bundle（`dsh.bundle.patch`），入口 `index.cjs`。
+  - 实现：在 Electron 主进程监听 `app` 的 `browser-window-created`，给每个 `BrowserWindow.webContents` 挂 `context-menu`，用 `Menu.buildFromTemplate` 弹原生菜单；普通 Node/Web profile 下 `process.versions.electron` 缺失自动 no-op。
+  - 菜单项：可编辑区域剪切/复制/粘贴/全选；非编辑区域复制（有选中文本时）/全选；有导航历史时后退/前进。
+  - 从 `dsh-desktop/src/runtime.cjs` 移除同款右键逻辑，桌面壳回归窗口/托盘/退出职责。
+  - `plugins.json` 与 `README.md` 目录表同步登记；零 clone 安装 `dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-desktop-context-menu"`。
+- **验证**：
+  - ✅ `node --check index.cjs` 通过。
+  - ✅ 临时 profile 组合验证：`desktop-context-menu` 行成功挂载（`@deepseek-ai/dsh-base` / `@deepseek-ai/dsh-web-app` / `dsh-desktop-context-menu`）。
+  - ✅ 带该 bundle 的 `smoke-boot`：in-process boot + web server + `desktop-shell` 调度 + 页面 200。
+- **遗留**：真实 Electron GUI 中的右键弹出与导航项启用状态需桌面端冒烟确认。
+
+
 
