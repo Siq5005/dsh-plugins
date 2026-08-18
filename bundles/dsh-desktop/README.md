@@ -43,7 +43,7 @@ Host 插件读取 loopback web server 端口并调度原生窗口/托盘，桌�
 ## 开发运行
 
 ```sh
-cd bundles/dsh-desktop
+cd dsh-desktop
 pnpm install
 env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron .   # GUI（mac）
 node scripts/bin.mjs                                        # 或走 dsh-desktop 启动器
@@ -70,7 +70,7 @@ DSH_HOME=/tmp/dsh-desktop-gui DSH_DESKTOP_HEADLESS=1 \
 ## 打包发布（Phase 2）
 
 ```sh
-cd bundles/dsh-desktop
+cd dsh-desktop
 pnpm install
 ./node_modules/.bin/electron-builder --mac dir     # 先出未打包 .app 冒烟
 ./node_modules/.bin/electron-builder --mac dmg zip # 出 DMG + ZIP
