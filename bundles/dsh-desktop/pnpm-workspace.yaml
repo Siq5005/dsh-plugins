@@ -1,0 +1,10 @@
+allowBuilds:
+  '@deepseek-ai/dsh-subprocess-local': false
+  '@google/genai': false
+  electron-winstaller: set this to true or false
+  koffi: false
+  node-pty: false
+  protobufjs: false
+
+nodeLinker: hoisted
+autoInstallPeers: true
