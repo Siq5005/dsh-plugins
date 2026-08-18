@@ -173,12 +173,13 @@
   - `nodeLinker: hoisted`（D-008）让 electron-builder 直接打扁平 node_modules，无 `.pnpm` 重复体（.pnpm 仅 516K）；`electron` 在 devDependencies，构建时自动排除，`@electron/rebuild` 自动重编译 `node-pty`。
   - **peer 依赖必须显式声明**（关键坑）：pnpm 的 `autoInstallPeers` 装的是兄弟包、不在 `dependencies` 树里，electron-builder 不打包它们；首版 DMG 缺 `@deepseek-ai/cordis`/`dsh-invariants`/`cordis-plugin-group` 等导致启动即 `ERR_MODULE_NOT_FOUND`。修复：把 `node_modules/@deepseek-ai/*` 全量（199 个）+ `node-addon-require-builtin`/`react`/`react-dom`/`clsx` 显式写进 `dependencies`（镜像 anywhere-labs 做法）。
   - 未签名：本机无 Developer ID，产物未签名/未公证；用户侧首次打开需右键→打开或 `xattr -dr com.apple.quarantine`。
-  - 图标：暂用 Electron 默认图标，后续补 `build/icon.icns`。
+  - 图标：`build/icon.icns`（由用户提供 JPG 经 `sips -s format png` + `iconutil` 生成，1024² 8-bit RGB）+ `build/icon.png`；`mac.icon`/`win.icon` 已配置，构建产物 hash 与源一致。
 - **验证**：
   - ✅ 未打包 `.app`（`release/mac-arm64/DSH Desktop.app`）无头冒烟：`[dsh-desktop] ready (profile: desktop)`，窗口创建并加载成功。
   - ✅ 产出 `release/DSH Desktop-0.1.0-arm64.dmg`（158MB）与 `-mac.zip`（171MB），`file` 校验为合法 zlib/zip。
   - ✅ 打包 `.app` 无头冒烟（补全 peer 后）：`[dsh-desktop] ready (profile: desktop)`；关键包 `cordis`/`dsh-invariants`/`cordis-plugin-group`/`react`/`react-dom`/`clsx` 均确认在 bundle 内。
 - **共享语义**：安装后的 app 与现有 DSH 共用 `~/.dsh`（`sessions`/`storages`/`profiles`/`.credentials.yaml`/`settings.yaml` 全共享），因为 `resolveDshHome()` 默认 `~/.dsh`；与官方桌面 app 同跑同一 workspace 会争用 `~/.dsh/sessions` 与 `storages/session_projcache.json`，**不要同时运行**。
-- **遗留**：签名/公证、真图标、Windows 产物验证、DMG 内的 `DSH Desktop.app` 改名与托盘真图标。
+- **修复（agent-presets）**：`host.js` 的 `composeProfile` 起初漏了上游 `runProfile` 里的 `agent-presets` roots 注入，导致官方 shipped 预设（`code`/`cordis`/`minimal`/`standard`，位于 `@deepseek-ai/dsh/config/agent-presets/`）没被加载、只剩插件注册的 `liangshen`；已补 `composeEntries` + `SHIPPED_PRESET_ROOT` 注入，`smoke-profile` 验证 root 注入成功。
+- **遗留**：签名/公证、Windows 产物验证、托盘真图标（当前 `nativeImage.createEmpty()` 占位）。
 
 

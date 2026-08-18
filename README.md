@@ -13,6 +13,7 @@
 | dsh-deepseek-cost | bundle | 按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用（未缓存输入 / 缓存输入 / 输出，分高峰空闲时段计价）；可选查询账号余额并联动桌宠气泡 | [bundles/dsh-deepseek-cost](bundles/dsh-deepseek-cost/) |
 | dsh-vision-adapter | bundle | 给 DeepSeek 主模型加"眼睛"：adapter 层把图片改写为文本，`analyze_image` 工具按需调用 OpenAI 兼容多模态端点 | [bundles/dsh-vision-adapter](bundles/dsh-vision-adapter/) |
 | dsh-workbench | bundle | 右侧工作台：文件浏览/编辑/预览 + 内嵌浏览器 + Git 面板（VS Code 式布局，占用 shell details 列、不遮挡对话；借鉴 dsh-better-sidebar 与 dsh-aionui-panel） | [bundles/dsh-workbench](bundles/dsh-workbench/) |
+| dsh-desktop | bundle | 桌面客户端：Electron 壳做成 DSH bundle（desktop-as-plugin），Electron 主进程 boot Host Cordis，托盘 / 多 profile / DMG 打包 | [bundles/dsh-desktop](bundles/dsh-desktop/) |
 | @linxin666/dsh-liangshen | bundle (外部) | 梁神模式：两阶段锚定 agent 预设（首轮 Minimal 锚定 → 切 Code Mode / PTC），npm 安装 | `dsh plugin add @linxin666/dsh-liangshen` |
 | @linxin666/dsh-skins | bundle (外部) | 皮肤中心 + 10 款内置皮肤（需搭配 @linxin666/dsh-client-ui-web-ui-settings），npm 安装 | `dsh plugin add @linxin666/dsh-skins` |
 | @linxin666/dsh-ssh | bundle (外部) | 远程 SSH 运维：主机管理 / Web 终端 / SFTP / 隧道 / 集群 / agent 工具，npm 安装 | `dsh plugin add @linxin666/dsh-ssh` |
