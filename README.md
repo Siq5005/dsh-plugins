@@ -1,115 +1,127 @@
 # dsh-plugins
 
-我的 DeepSeek Harness (DSH) 插件集合仓库 —— 归档 AI 自用插件，同时支持他人在集合中**搜寻**并**只取需要的插件**。
+DeepSeek Harness（DSH）插件集合。这里收录了一批可直接安装、可独立使用的 DSH 插件，你可以按需挑选，只安装自己需要的那个。
 
-决策记录见 [DECISIONS.md](DECISIONS.md)。新开对话继续开发请先读 [SESSION_START.md](SESSION_START.md)。
+- **即装即用**：无需克隆整个仓库即可安装单个插件。
+- **独立自洽**：每个插件都是自包含目录，附有各自的 README、配置与许可说明。
+- **便于检索**：提供机器可读索引 [`plugins.json`](plugins.json)，方便脚本、自动化与 AI 工具查找。
 
-## 插件目录（索引）
+## 快速开始
 
-| 插件 | 类型 | 说明 | 路径 |
-|---|---|---|---|
-| dsh-hello-plugin | bundle | 示例插件：验证安装链路的最小模板 | [bundles/hello-plugin](bundles/hello-plugin/) |
-| dsh-dafeiyu-mac | bundle | macOS 桌面大肥鱼：由 DSH 会话状态驱动的桌宠伴侣（复刻自 dsh-dafeiyu） | [bundles/dsh-dafeiyu-mac](bundles/dsh-dafeiyu-mac/) |
-| dsh-deepseek-cost | bundle | 按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用（未缓存输入 / 缓存输入 / 输出，分高峰空闲时段计价）；可选查询账号余额并联动桌宠气泡 | [bundles/dsh-deepseek-cost](bundles/dsh-deepseek-cost/) |
-| dsh-vision-adapter | bundle | 给 DeepSeek 主模型加"眼睛"：adapter 层把图片改写为文本，`analyze_image` 工具按需调用 OpenAI 兼容多模态端点 | [bundles/dsh-vision-adapter](bundles/dsh-vision-adapter/) |
-| dsh-workbench | bundle | 右侧工作台：文件浏览/编辑/预览 + 内嵌浏览器 + Git 面板（VS Code 式布局，占用 shell details 列、不遮挡对话；借鉴 dsh-better-sidebar 与 dsh-aionui-panel） | [bundles/dsh-workbench](bundles/dsh-workbench/) |
-| dsh-desktop | bundle (独立仓库) | 桌面客户端：Electron 壳做成 DSH bundle（desktop-as-plugin），Electron 主进程 boot Host Cordis，托盘 / 多 profile / DMG 打包；已拆分至独立仓库 | [Siq5005/dsh-desktop](https://github.com/Siq5005/dsh-desktop) |
-| dsh-desktop-context-menu | bundle | 给 DSH Desktop 窗口加原生右键菜单：复制 / 粘贴 / 剪切 / 全选 / 后退 / 前进（Host-only） | [bundles/dsh-desktop-context-menu](bundles/dsh-desktop-context-menu/) |
-| @linxin666/dsh-liangshen | bundle (外部) | 梁神模式：两阶段锚定 agent 预设（首轮 Minimal 锚定 → 切 Code Mode / PTC），npm 安装 | `dsh plugin add @linxin666/dsh-liangshen` |
-| @linxin666/dsh-skins | bundle (外部) | 皮肤中心 + 10 款内置皮肤（需搭配 @linxin666/dsh-client-ui-web-ui-settings），npm 安装 | `dsh plugin add @linxin666/dsh-skins` |
-| @linxin666/dsh-ssh | bundle (外部) | 远程 SSH 运维：主机管理 / Web 终端 / SFTP / 隧道 / 集群 / agent 工具，npm 安装 | `dsh plugin add @linxin666/dsh-ssh` |
+### 环境要求
 
-完整机器可读索引见 [`plugins.json`](plugins.json)（字段定义见 [`plugins.schema.json`](plugins.schema.json)）。
+- Node.js 20+
+- 已安装 DeepSeek Harness 的 `dsh` 命令行工具
 
-## 只取一个插件（三种方式）
+### 安装单个插件
 
-### 1. 零 clone 直接安装（推荐）
-
-`dsh plugin add` 转发给 pnpm，pnpm 支持从 git 仓库安装子目录，只拉取目标插件：
+以 `dsh-workbench` 为例（`<name>` 替换为你的 profile 名称）：
 
 ```sh
-dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/hello-plugin"
+dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-workbench"
 ```
 
-### 2. 稀疏克隆（拿插件源码）
+也可以克隆仓库后从本地安装：
+
+```sh
+git clone https://github.com/Siq5005/dsh-plugins.git
+cd dsh-plugins
+dsh plugin --profile <name> add ./bundles/dsh-workbench
+```
+
+> 下文插件目录中的安装命令省略了 `--profile`；如需指定 profile，请补上 `--profile <name>`。
+
+## 插件目录
+
+### 本仓库插件
+
+| 插件 | 说明 | 安装 |
+| --- | --- | --- |
+| [dsh-hello-plugin](bundles/hello-plugin/) | 最小示例模板，用于验证 DSH 插件安装链路 | `dsh plugin add "Siq5005/dsh-plugins#path:/bundles/hello-plugin"` |
+| [dsh-dafeiyu-mac](bundles/dsh-dafeiyu-mac/) | macOS 桌面大肥鱼：由 DSH 会话状态驱动的桌宠伴侣 | `dsh plugin add "Siq5005/dsh-plugins#path:/bundles/dsh-dafeiyu-mac"` |
+| [dsh-deepseek-cost](bundles/dsh-deepseek-cost/) | 按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用 | `dsh plugin add "Siq5005/dsh-plugins#path:/bundles/dsh-deepseek-cost"` |
+| [dsh-vision-adapter](bundles/dsh-vision-adapter/) | 给 DeepSeek 主模型加“眼睛”，让纯文本模型可以按需调用多模态端点看图 | `dsh plugin add "Siq5005/dsh-plugins#path:/bundles/dsh-vision-adapter"` |
+| [dsh-workbench](bundles/dsh-workbench/) | 右侧工作台：文件浏览/编辑/预览 + 内嵌浏览器 + Git 面板 | `dsh plugin add "Siq5005/dsh-plugins#path:/bundles/dsh-workbench"` |
+| [dsh-desktop-context-menu](bundles/dsh-desktop-context-menu/) | 给 DSH Desktop 窗口加原生右键菜单（Host-only） | `dsh plugin add "Siq5005/dsh-plugins#path:/bundles/dsh-desktop-context-menu"` |
+
+### 独立仓库插件
+
+| 插件 | 说明 | 安装 |
+| --- | --- | --- |
+| [dsh-desktop](https://github.com/Siq5005/dsh-desktop) | 桌面客户端：Electron 壳 + DSH Host，托盘 / 多 profile / DMG 打包 | 见 [dsh-desktop 仓库](https://github.com/Siq5005/dsh-desktop) |
+
+### 外部 npm 插件
+
+| 插件 | 说明 | 安装 |
+| --- | --- | --- |
+| `@linxin666/dsh-liangshen` | 梁神模式：两阶段锚定 agent 预设 | `dsh plugin add @linxin666/dsh-liangshen` |
+| `@linxin666/dsh-skins` | 皮肤中心 + 多款内置皮肤 | `dsh plugin add @linxin666/dsh-skins` |
+| `@linxin666/dsh-ssh` | 远程 SSH 运维：主机管理 / Web 终端 / SFTP / 隧道 / 集群 | `dsh plugin add @linxin666/dsh-ssh` |
+
+> 外部 npm 插件由上游仓库发布，安装与升级请以对应项目说明为准。
+>
+> `dsh-skins` 的皮肤中心通常还需安装 `@linxin666/dsh-client-ui-web-ui-settings`。
+
+## 只安装一个插件
+
+本仓库支持多种按需取用方式，无需下载全部插件。
+
+### 1. 直接安装（推荐）
+
+`dsh plugin add` 会转发给 pnpm，可从 git 仓库安装子目录：
+
+```sh
+dsh plugin add "Siq5005/dsh-plugins#path:/bundles/<plugin-name>"
+```
+
+### 2. 稀疏克隆
+
+只检出目标插件目录：
 
 ```sh
 git clone --filter=blob:none --sparse https://github.com/Siq5005/dsh-plugins.git
 cd dsh-plugins
-git sparse-checkout set bundles/hello-plugin
+git sparse-checkout set bundles/<plugin-name>
 ```
-
-只下载目标插件的文件内容（`--filter=blob:none` 为 partial clone，元数据极轻）。根目录索引文件（README / plugins.json）会一并检出，便于继续搜寻；其余目录不下载。
 
 ### 3. 免 git 下载
 
-- 打开 [download-directory.github.io](https://download-directory.github.io/)，粘贴目录链接 `https://github.com/Siq5005/dsh-plugins/tree/main/bundles/hello-plugin`，下载该目录的 zip；
-- 或命令行：`gh api repos/Siq5005/dsh-plugins/contents/bundles/hello-plugin` 逐个取文件。
+使用 [download-directory.github.io](https://download-directory.github.io/) 下载单个目录的 zip，或用 GitHub API 拉取目标目录下的文件。
 
-## 目录规划
+## 仓库结构
 
 ```
 dsh-plugins/
-├── bundles/     # 可安装组合包（声明 dsh.bundle 的 npm 包）
-├── skills/      # 技能：目录形式的可加载技能包
-├── tools/       # 独立工具脚本 / MCP 服务
-├── plugins.json # 机器可读插件索引（搜寻用）
-└── DECISIONS.md # 决策记录
+├── bundles/              # 可安装组合包（bundle）
+├── skills/               # 技能包
+├── tools/                # 独立工具脚本 / MCP 服务
+├── plugins.json          # 机器可读插件索引
+└── plugins.schema.json   # 索引字段定义
 ```
 
-## 新增插件流程
+- [`bundles/`](bundles/)：可直接通过 `dsh plugin add` 安装的插件包。
+- [`skills/`](skills/)：目录形式的可加载技能包。
+- [`tools/`](tools/)：独立工具脚本或 MCP 服务。
+- [`plugins.json`](plugins.json)：机器可读索引；字段定义见 [`plugins.schema.json`](plugins.schema.json)。
 
-1. 在对应目录创建插件（参考 [`bundles/hello-plugin`](bundles/hello-plugin/) 模板）；
-2. 本地验证：`dsh plugin --profile dev add ./bundles/<name>`；
-3. 更新 [`plugins.json`](plugins.json) 与上方目录表；
-4. `git commit` + `git push` 归档。
+## 贡献
 
-## 插件是什么
+1. 在对应目录下创建插件，可参考 [`bundles/hello-plugin`](bundles/hello-plugin/)；
+2. 本地验证安装与功能；
+3. 更新 [`plugins.json`](plugins.json) 与上方的插件目录；
+4. 提交 Pull Request。
 
-在 DSH 中，插件是一个导出 `apply(ctx)` 函数的 TypeScript/JavaScript 模块。框架加载时调用 `apply`，传入上下文对象 `ctx`，通过 `ctx` 注册能力（事件监听、工具、定时器等），插件卸载时自动清理。
+提交前请确认：
 
-一个可安装的**组合包（bundle）**结构如下：
+- 插件目录自包含，并附有 README；
+- 索引字段与 [`plugins.schema.json`](plugins.schema.json) 一致；
+- 引用了第三方代码或素材时，保留相应许可说明。
 
-```
-hello-plugin/
-├── package.json       # 声明 dsh.bundle
-├── cordis.patch.yml   # 组合包贡献的配置层
-└── index.js           # 插件模块
-```
+## 许可
 
-`package.json` 中的 manifest：
+本仓库整体采用 [MIT License](LICENSE)。各插件目录内另有说明的，以目录内说明为准。
 
-```json
-{
-  "name": "dsh-hello-plugin",
-  "version": "0.1.0",
-  "type": "module",
-  "main": "index.js",
-  "files": ["index.js", "cordis.patch.yml"],
-  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
-}
-```
+- 插件代码：MIT（目录内另有声明的除外）。
+- `dsh-dafeiyu-mac` 的视觉素材：采用 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 许可，详见 [`ASSET_LICENSE.md`](bundles/dsh-dafeiyu-mac/ASSET_LICENSE.md)。
 
-## 安装方式
-
-从本仓库目录安装某个插件包到指定 profile：
-
-```sh
-dsh plugin --profile <name> add ./bundles/<plugin-name>
-```
-
-验证配置层：
-
-```sh
-dsh --profile <name> --dump-config
-```
-
-## 参考文档
-
-- [第一个插件](https://deepseek-harness.dev/)（docs/user/develop/basic/index.zh.md）
-- [打包与安装插件](https://deepseek-harness.dev/)（docs/user/develop/basic/publish.zh.md）
-- [pnpm: 从 git 仓库安装子目录](https://pnpm.io/package-sources)（`#path:` 参数）
-
-## License
-
-私有使用；如包含第三方代码，请遵守对应上游许可。
+索引中列出的外部 npm 插件由各自项目负责许可与维护。
