@@ -217,3 +217,14 @@
 
 
 
+## D-013 dsh-dafeiyu-mac 下个版本开发项：动画扩展（上游 PR #23）
+
+- **日期**：2026-08-18
+- **状态**：已采纳（Adopted，列为下个版本开发项，未开工）
+- **背景**：上游 `QCYTSN/dsh-dafeiyu` 的 PR [#23](https://github.com/QCYTSN/dsh-dafeiyu/pull/23)（作者 Serendipity-wu02，**开放中**）扩展桌宠动画系统：新增 searching（翻书查找 8 帧过程）、working 坐姿工作（seat_01~05 + 情绪帧）、enter/leave 出入场、question/answer 提问回答、dragging 拖拽细节等约 30 张新素材；并重写 animation_model / helper / reducer 等核心文件（约 3400 行 diff）。素材经确认协议为 **CC-BY-SA 4.0**。
+- **决策**：
+  1. 列入 dsh-dafeiyu-mac 下个版本开发项（与走动动画、摸头/戳互动同批）。
+  2. **等待 PR 合并进上游 main 后再整体同步**——与 keyed slot / approval 修复的同步路径一致；合并前不跟进草稿（PR 为重构式改动，与当前 main 基线差异大）。
+  3. 素材许可：CC-BY-SA 4.0，同步时需保留署名并遵守相同方式共享（详见 PR 素材来源）。
+  4. 追踪：GitHub issue/PR 订阅 REST API 已废弃（PUT/GET subscriptions 均 404），无法 API watch；需在 PR 页面手动 Subscribe 或按本条目 URL 定期检查状态。
+- **备注**：同步时基线为上游 main（我们已同步的 keyed slot / approval 修复都在 main 上）；若仅想先要个别动作，可选择性移植素材 + clip（需符合 CC-BY-SA 4.0）。
