@@ -448,8 +448,12 @@ class PetWindow(QWidget):
             new_x = min(max(self.x() + step, geo.x()), geo.right() - self.BASE_W + 1)
             step = new_x - self.x()
             if abs(step) < 0.5:
-                # 贴边走不动了：结束走动。
-                self._finish_walk()
+                # 贴屏幕边缘：掉头继续走（自然转身），而不是终止——
+                # 否则靠近边缘时该方向的走动会瞬间结束，观感上偏向另一方向。
+                walk["dir"] *= -1
+                side = "left" if walk["dir"] < 0 else "right"
+                self.model.play_sequence([f"walk_start_{side}", f"walk_side_{side}"])
+                walk["remaining"] = max(walk["remaining"], 40.0)
                 return
         else:
             new_x = self.x() + step
