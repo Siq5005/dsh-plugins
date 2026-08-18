@@ -413,8 +413,11 @@ class PetWindow(QWidget):
             self.model.play_sequence(clips)
 
     def _start_walk(self) -> None:
-        """空闲巡逻：向左/右走一小段，窗口随之平移（不持久化位置）。"""
-        if self._walk is not None or self.config["reduced_motion"]:
+        """空闲巡逻：向左/右走一小段，窗口随之平移（不持久化位置）。
+
+        锁定时不触发——锁定语义是"固定位置、点击穿透"，走动会改变位置。
+        """
+        if self._walk is not None or self.config["reduced_motion"] or self.config["locked"]:
             return
         if self.model.base_state != "IDLE" or self.model.overlay_clip_name is not None:
             return
@@ -569,6 +572,8 @@ class PetWindow(QWidget):
         if self.config["locked"]:
             return
         if event.button() == self.Qt.LeftButton:
+            # 拖拽开始：终止进行中的走动，避免两个 move 互相覆盖。
+            self._walk = None
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             # 拖拽细节：抓取姿势（如有素材）。
             if "dragging_hold" in self.model.clips:
