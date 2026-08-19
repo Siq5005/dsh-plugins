@@ -171,6 +171,10 @@ class PetWindow(QWidget):
         self._walk: dict[str, Any] | None = None
         self._anim_started = False
         self._question_phase = "none"
+        # 系统睡眠/唤醒防护。
+        self._sleeping = False
+        self._anim_errors = 0
+        self._install_power_monitor()
 
         self.setWindowFlags(self._flags_for(config["locked"]))
         self.setAttribute(self.Qt.WA_TranslucentBackground)
@@ -269,6 +273,49 @@ class PetWindow(QWidget):
         except Exception:
             pass
 
+    def _install_power_monitor(self) -> None:
+        """macOS：监听系统睡眠/唤醒，唤醒后重建渲染缓存并强制重绘。
+
+        屏幕熄灭再打开时，透明无边框窗口的渲染表面可能失效（Qt/cocoa
+        已知问题），历史上表现为重绘崩溃。唤醒时清空 QPixmap 缓存 +
+        强制 update() 可避免使用失效表面。pyobjc 缺失时静默降级。
+        """
+        try:
+            import objc
+            from AppKit import (NSWorkspace, NSWorkspaceDidWakeNotification,
+                                NSWorkspaceWillSleepNotification)
+            from Foundation import NSObject
+
+            class _PowerObserver(NSObject):
+                def init(self):
+                    self = objc.super(_PowerObserver, self).init()
+                    self.callback = None
+                    return self
+
+                def didWake_(self, notification):  # noqa: N802
+                    if self.callback:
+                        self.callback(False)
+
+                def willSleep_(self, notification):  # noqa: N802
+                    if self.callback:
+                        self.callback(True)
+
+            observer = _PowerObserver.alloc().init()
+            observer.callback = self._on_power_change
+            center = NSWorkspace.sharedWorkspace().notificationCenter()
+            center.addObserver_selector_name_object_(observer, b"didWake:", NSWorkspaceDidWakeNotification, None)
+            center.addObserver_selector_name_object_(observer, b"willSleep:", NSWorkspaceWillSleepNotification, None)
+            self._power_observer = observer  # 持有引用，防止被 GC。
+        except Exception:
+            pass
+
+    def _on_power_change(self, sleeping: bool) -> None:
+        self._sleeping = sleeping
+        if not sleeping:
+            # 唤醒：渲染表面可能已失效，重建 pixmap 缓存并强制重绘。
+            self._pixmaps.clear()
+            self.update()
+
     # ---- 消息处理 -------------------------------------------------
     def _poll_inbox(self) -> None:
         while True:
@@ -276,7 +323,11 @@ class PetWindow(QWidget):
                 message = self.inbox.get_nowait()
             except queue.Empty:
                 break
-            self._handle(message)
+            try:
+                self._handle(message)
+            except Exception as error:
+                # 单条消息处理异常不杀死进程（DSH 端有自动重启兜底）。
+                print(f"[dsh-dafeiyu-mac] message handler error: {error}", file=sys.stderr, flush=True)
 
     def _handle(self, message: dict[str, Any]) -> None:
         kind = message.get("kind")
@@ -474,21 +525,33 @@ class PetWindow(QWidget):
 
     # ---- 动画 -----------------------------------------------------
     def _on_anim_tick(self) -> None:
-        now = time.monotonic() * 1000
-        delta = now - self._clock_ms
-        self._clock_ms = now
-        delta = max(1, min(int(delta), 200))
-        # PULSE（成功/失败）是带 TTL 的瞬态状态：过期后回落到 resume 状态，
-        # 避免"完成/出错"动画无限循环。
-        if self._pulse_until_ms and now >= self._pulse_until_ms:
-            self._expire_pulse()
-        self._maybe_enter()
-        self._tick_walk(delta)
-        self.model.tick(delta)
-        self._render_pet()
-        # 动画位移会让角色移动，气泡保持贴在其上方。
-        if self.bubble.isVisible():
-            self._layout_bubble()
+        try:
+            now = time.monotonic() * 1000
+            delta = now - self._clock_ms
+            self._clock_ms = now
+            delta = max(1, min(int(delta), 200))
+            # PULSE（成功/失败）是带 TTL 的瞬态状态：过期后回落到 resume 状态，
+            # 避免"完成/出错"动画无限循环。
+            if self._pulse_until_ms and now >= self._pulse_until_ms:
+                self._expire_pulse()
+            if self._sleeping:
+                # 系统睡眠：跳过渲染，唤醒后自然恢复（避免唤醒瞬间积压）。
+                return
+            self._maybe_enter()
+            self._tick_walk(delta)
+            self.model.tick(delta)
+            self._render_pet()
+            # 动画位移会让角色移动，气泡保持贴在其上方。
+            if self.bubble.isVisible():
+                self._layout_bubble()
+            self._anim_errors = 0
+        except Exception as error:
+            # 渲染异常兜底：记录一次，连续约 10 秒异常则退出，由 DSH 自动重启。
+            self._anim_errors += 1
+            if self._anim_errors == 1:
+                print(f"[dsh-dafeiyu-mac] anim tick error: {error}", file=sys.stderr, flush=True)
+            if self._anim_errors >= 300:
+                self.QApplication.quit()
 
     def _expire_pulse(self) -> None:
         self._pulse_until_ms = 0
