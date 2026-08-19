@@ -187,6 +187,16 @@ export function apply(ctx, config) {
       }) ?? localSettingsScope(publicConfig(config))
       // 运行时配置 = yml patch 默认 + 设置文档覆盖（设置页保存后即时生效）。
       current = () => ({ ...config, ...omitUndefined(settings.get()) })
+      // 诊断：记录 settings 注入是否成功、合并后的实际端点（不含 key）。
+      const merged = current()
+      ctx.logger?.info(
+        'dsh-vision-adapter: settings 已注入，baseURL=%s model=%s enabled=%s autoCaption=%s（fallback=%s）',
+        merged.baseURL,
+        merged.model,
+        merged.enabled,
+        merged.autoCaption,
+        settingsCtx.settings === undefined ? 'settings 服务缺失' : 'normal',
+      )
       ctx.inject(['webServer'], (httpCtx) => {
         httpCtx.effect(
           () => httpCtx.webServer.register({ kind: 'exact', path: CONFIG_ENDPOINT, handler: createConfigHandler(settings) }),
@@ -194,6 +204,8 @@ export function apply(ctx, config) {
         )
       })
     })
+  } else {
+    ctx.logger?.warn('dsh-vision-adapter: ctx.inject 不可用，设置页与 settings 覆盖停用（使用 yml 配置）')
   }
 
   // ── 1. 工具：主模型按需看图 ──────────────────────────────────────────────
