@@ -145,10 +145,11 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
   }
 
   // ---------- 费用行（conversation.composer.dock） ----------
+  // 颜色一律走 DSH 主题 token（--dsw-alias-*），深/浅色模式自动适配。
   const ROW_STYLE = {
     display: 'flex', alignItems: 'center', gap: 6,
     fontSize: 12, lineHeight: '20px',
-    color: 'var(--text-color, #333)',
+    color: 'var(--dsw-alias-label-primary)',
     minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     cursor: 'default',
   }
@@ -212,24 +213,31 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
   }
 
   // ---------- 费用统计设置页（settings.section） ----------
+  // 颜色一律走 DSH 主题 token（--dsw-alias-*），深/浅色模式自动适配。
   const PAGE_STYLE = {
     display: 'grid', gap: 16, maxWidth: 720,
-    padding: '4px 2px', color: 'var(--text-color, #333)',
+    padding: '4px 2px', color: 'var(--dsw-alias-label-primary)',
   }
   const CARD_STYLE = {
-    listStyle: 'none', border: '1px solid var(--border-color, #d8d8d8)', borderRadius: 12,
-    padding: 16, background: 'var(--surface-color, transparent)', display: 'grid', gap: 12,
+    listStyle: 'none', border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 12,
+    padding: 16, background: 'var(--dsw-alias-bg-layer-1)', display: 'grid', gap: 12,
   }
   const ROW_STYLE_2 = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
   const LABEL_STYLE = { fontWeight: 600 }
   const INPUT_STYLE = {
     minWidth: 72, padding: '4px 8px', borderRadius: 8,
-    border: '1px solid var(--border-color, #ccc)', background: 'var(--surface-color, #fff)',
-    color: 'var(--text-color, #333)',
+    border: '1px solid var(--dsw-alias-border-l2)',
+    background: 'var(--dsw-alias-bg-layer-2)',
+    color: 'var(--dsw-alias-label-primary)',
   }
   const SMALL_STYLE = { opacity: 0.65, fontSize: 12 }
-  const TABLE_HEAD_STYLE = { textAlign: 'left', padding: '4px 10px', borderBottom: '1px solid var(--border-color, #ddd)', fontWeight: 600 }
-  const TABLE_CELL_STYLE = { padding: '4px 10px', borderBottom: '1px solid var(--border-color, #eee)' }
+  const TABLE_HEAD_STYLE = { textAlign: 'left', padding: '4px 10px', borderBottom: '1px solid var(--dsw-alias-border-l1)', fontWeight: 600 }
+  const TABLE_CELL_STYLE = { padding: '4px 10px', borderBottom: '1px solid var(--dsw-alias-border-l1)' }
+  const BUTTON_STYLE = {
+    padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
+    border: '1px solid var(--dsw-alias-border-l2)',
+    background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)',
+  }
 
   function NumberInput({ value, onChange, width }) {
     return React.createElement('input', {
@@ -426,7 +434,7 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
             onChange: (event) => setDraft((prev) => ({ ...prev, balanceBaseUrl: event.target.value })),
           }),
           React.createElement('button', {
-            style: { padding: '4px 12px', borderRadius: 8, cursor: 'pointer' },
+            style: { ...BUTTON_STYLE, minWidth: 84 },
             disabled: status === 'saving' || draft.balanceEnabled !== true,
             onClick: saveBalance,
           }, '保存余额设置'),
@@ -439,7 +447,7 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
         ),
         draft.models.length === 0
           ? React.createElement('span', { style: SMALL_STYLE }, '尚未配置自定义模型价格。')
-          : draft.models.map((m, index) => React.createElement('div', { key: index, style: { ...ROW_STYLE_2, borderTop: '1px solid var(--border-color, #eee)', paddingTop: 10 } },
+          : draft.models.map((m, index) => React.createElement('div', { key: index, style: { ...ROW_STYLE_2, borderTop: '1px solid var(--dsw-alias-border-l1)', paddingTop: 10 } },
             React.createElement('input', {
               type: 'text', placeholder: '模型 id', value: m.id ?? '', style: { ...INPUT_STYLE, minWidth: 140 },
               onChange: (event) => updateModel(index, 'id', event.target.value),
@@ -455,7 +463,7 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
             NumberInput({ value: m.output ?? '', onChange: (v) => updateModel(index, 'output', v), width: 84 }),
             React.createElement('span', { style: SMALL_STYLE }, '输出'),
             React.createElement('button', {
-              style: { marginLeft: 'auto', padding: '4px 10px', borderRadius: 8, cursor: 'pointer' },
+              style: { ...BUTTON_STYLE, marginLeft: 'auto' },
               onClick: () => {
                 setDraft((prev) => ({ ...prev, models: prev.models.filter((_, i) => i !== index) }))
                 setStatus('ready')
@@ -463,7 +471,7 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
             }, '删除'),
           )),
         React.createElement('button', {
-          style: { padding: '4px 12px', borderRadius: 8, cursor: 'pointer', alignSelf: 'flex-start' },
+          style: { ...BUTTON_STYLE, alignSelf: 'flex-start' },
           onClick: () => {
             setDraft((prev) => ({ ...prev, models: [...prev.models, { id: '', name: '', cacheMiss: '', cacheHit: '', output: '' }] }))
             setStatus('ready')
@@ -471,16 +479,16 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
         }, '+ 添加模型'),
         React.createElement('div', { style: ROW_STYLE_2 },
           React.createElement('button', {
-            style: { padding: '6px 20px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
+            style: { ...BUTTON_STYLE, padding: '6px 20px', fontWeight: 600 },
             disabled: status === 'saving' || status === 'loading',
             onClick: saveModels,
           }, '保存'),
           status === 'saving'
             ? React.createElement('span', { role: 'status' }, '保存中…')
             : status === 'saved'
-            ? React.createElement('span', { role: 'status', style: { color: 'var(--success-color, #1a7f37)' } }, '已保存 ✓')
+            ? React.createElement('span', { role: 'status', style: { color: 'var(--dsw-alias-state-success-primary)' } }, '已保存 ✓')
             : status === 'error'
-            ? React.createElement('span', { role: 'status', style: { color: 'var(--danger-color, #c0392b)' } }, `保存失败：${errorText}`)
+            ? React.createElement('span', { role: 'status', style: { color: 'var(--dsw-alias-state-error-primary)' } }, `保存失败：${errorText}`)
             : null,
         ),
       ),
