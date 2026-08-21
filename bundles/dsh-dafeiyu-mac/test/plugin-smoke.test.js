@@ -15,7 +15,8 @@ function readLog() {
   return readFileSync(eventLog, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line))
 }
 
-function waitFor(predicate, timeoutMs = 8000) {
+// 默认超时 25s：helper 可能走打包二进制（onefile 首启解压 5~8s）。
+function waitFor(predicate, timeoutMs = 25000) {
   const started = Date.now()
   return new Promise((resolvePromise, reject) => {
     const check = () => {

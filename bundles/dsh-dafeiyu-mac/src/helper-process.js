@@ -90,6 +90,18 @@ export class HelperProcess {
     child.once('error', (error) => {
       this.logger.error?.(`dsh-dafeiyu-mac helper failed to start: ${error.message}`)
     })
+    // 子进程退出竞态中向已关闭管道写可能触发异步 EPIPE error——
+    // 静默吞掉，避免冒泡成 Uncaught Exception。
+    child.stdin.on('error', (error) => {
+      if (['EPIPE', 'ERR_STREAM_DESTROYED', 'ERR_STREAM_WRITE_AFTER_END'].includes(error?.code)) {
+        if (this.child === child) {
+          this.child = undefined
+          this.spawned = false
+        }
+        return
+      }
+      this.logger.warn?.(`dsh-dafeiyu-mac helper stdin error: ${error.message}`)
+    })
     child.once('exit', (code, signal) => {
       if (this.child !== child) return
       this.child = undefined
@@ -118,7 +130,18 @@ export class HelperProcess {
       }
       return
     }
-    this.child.stdin.write(line)
+    try {
+      this.child.stdin.write(line)
+    } catch (error) {
+      // 子进程退出竞态：stdin 看似可写但底层管道已关闭（write EPIPE）。
+      // 不向外抛，避免变成 Uncaught Exception 崩掉整个 DSH。
+      if (['EPIPE', 'ERR_STREAM_DESTROYED', 'ERR_STREAM_WRITE_AFTER_END'].includes(error?.code)) {
+        this.child = undefined
+        this.spawned = false
+        return
+      }
+      throw error
+    }
   }
 
   stop(reason = 'plugin-disposed') {
@@ -151,14 +174,29 @@ export class HelperProcess {
     const child = this.child
     if (!this.spawned || !child?.stdin.writable || child.stdin.destroyed) return
     const payload = [...this.snapshot.values()].join('')
-    if (payload) child.stdin.write(payload)
+    if (payload) this.#safeWrite(child, payload)
   }
 
   #flushQueue() {
     const child = this.child
     if (!this.spawned || !child?.stdin.writable || child.stdin.destroyed) return
     const payload = this.queue.splice(0).join('')
-    if (payload) child.stdin.write(payload)
+    if (payload) this.#safeWrite(child, payload)
+  }
+
+  #safeWrite(child, payload) {
+    try {
+      child.stdin.write(payload)
+    } catch (error) {
+      if (['EPIPE', 'ERR_STREAM_DESTROYED', 'ERR_STREAM_WRITE_AFTER_END'].includes(error?.code)) {
+        if (this.child === child) {
+          this.child = undefined
+          this.spawned = false
+        }
+        return
+      }
+      throw error
+    }
   }
 
   #handleReply(line) {
