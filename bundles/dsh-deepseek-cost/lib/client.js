@@ -149,7 +149,7 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
   // 不足）；允许换行（原 nowrap+overflow:hidden 在 flex 容器里 text-overflow
   // 不生效，dock 变窄时内容被硬截断）。深色皮肤下可读性待后续设置项。
   const ROW_STYLE = {
-    display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap',
     fontSize: 12, lineHeight: '20px',
     color: '#111',
     cursor: 'default',
@@ -534,6 +534,10 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
       '  min-width: 0 !important;',
       '  white-space: normal !important;',
       '  overflow-wrap: anywhere !important;',
+      '}',
+      // 官方统计行（槽内第一个子元素）缩小字号，尽量一行完整放下。
+      '[data-slot="conversation.composer.dock"] > *:first-child {',
+      '  font-size: 12px !important;',
       '}',
     ].join('\n')
     document.head.appendChild(style)
