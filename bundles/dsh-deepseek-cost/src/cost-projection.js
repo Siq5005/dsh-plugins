@@ -108,12 +108,19 @@ export function createTokenCostProjection() {
         lastTier: tier,
       }
     },
-    view(state) {
-      const models = Object.entries(state.perModel)
-        .filter(([, row]) => !bucketEmpty(row.peak) || !bucketEmpty(row.offpeak))
-        .map(([model, row]) => ({ model, peak: row.peak, offpeak: row.offpeak }))
-        .sort((a, b) => a.model.localeCompare(b.model))
-      return { models, lastTier: state.lastTier }
+    // 0.1.2-rc.1 客户端投递契约：投影必须提供 `wire`（旧的裸 view/schema 字段
+    // 被 dsh-session-projection 忽略——values()/帧推送均以 def.wire 为准；缺失
+    // wire 的投影不进 tail 投影块与 session/projection 帧，useProjection 恒为
+    // undefined）。viewSchema 与 view 对应浏览器端 tokenCostSchema 线格式。
+    wire: {
+      viewSchema: tokenCostSchema,
+      view(state) {
+        const models = Object.entries(state.perModel)
+          .filter(([, row]) => !bucketEmpty(row.peak) || !bucketEmpty(row.offpeak))
+          .map(([model, row]) => ({ model, peak: row.peak, offpeak: row.offpeak }))
+          .sort((a, b) => a.model.localeCompare(b.model))
+        return { models, lastTier: state.lastTier }
+      },
     },
   }
 }

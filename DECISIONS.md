@@ -288,3 +288,12 @@
 - **决策**：`bundles/dsh-deepseek-cost/lib/client.js` 的 `ROW_STYLE`：`flexWrap:'wrap'` 并移除 `minWidth/whiteSpace/overflow/textOverflow`（允许换行，随内容高度自动扩展）；`color` 从主题 token 改为固定 `#111`（近黑）。
 - **验证**：`node --check` 通过；用户 refresh GUI 后确认 dock 行完整显示、可读。
 - **遗留/权衡**：固定黑色在**深色/暗色皮肤**下可读性会下降；后续可加设置项（跟随 token / 固定深色 / 固定浅色）替代硬编码。设置页（settings.section）保持主题 token 不变。
+
+## D-018 dsh-deepseek-cost 费用行不可见的根因修复：投影 wire 契约（0.1.2-rc.1）
+
+- **日期**：2026-09-07
+- **状态**：已采纳（实施完成，用户确认费用行出现）
+- **背景**：升级 0.1.2-rc.1 后费用行完全不显示。排查链：服务端 config 端点 200、宿主投影注册表含 tokenCost、真实事件上折叠与 view 均产出非空数据、客户端 `useProjection('tokenCost')` 却恒为 undefined。经比对 `dsh-session-stats`（工作正常）与宿主驱动源码定位：**0.1.2-rc.1 的投影契约要求定义带 `wire: { viewSchema, view }`**——宿主 `values()`/帧推送/缓存快照全部只认 `def.wire`，旧版裸 `view`/`schema` 字段被忽略；缺 `wire` 的投影不进 tail 投影块与 `session/projection` 帧，客户端视为"能力缺失"。此前所有颜色/换行修改"看不到效果"，是因为费用行元素从未被渲染（数据未送达），而非样式问题。
+- **决策**：`src/cost-projection.js` 的 `createTokenCostProjection()` 增加 `wire: { viewSchema: tokenCostSchema, view(state) }`（将原 `view` 移入 wire，viewSchema 用既有 tokenCostSchema）；host 侧源码生效、无需构建。
+- **验证**：ESM 语法通过；用真实 318 步会话跑 `apply → wire.view → viewSchema.parse`，输出 `deepseek-v4-flash: 303680 output tokens`；重启后用户确认费用行（黄底诊断标记）**出现**。随后移除黄底/红框临时标记，恢复 D-017 正式样式。
+- **备注**：D-017 的"看不到效果"结论修正为"未渲染"；原生统计行（StatsLine）截断是独立的核心布局问题，另行处理。
