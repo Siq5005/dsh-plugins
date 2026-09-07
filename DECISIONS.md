@@ -285,8 +285,8 @@
 - **日期**：2026-09-07
 - **状态**：已采纳（实施完成，见验证）
 - **背景**：升级 0.1.2-rc.1 + dsh-skins 0.2.9 后，composer.dock 计费行出现：① 内容只显示前段——原样式 `whiteSpace:nowrap + overflow:hidden + textOverflow:ellipsis` 用在 **flex 容器**上，`text-overflow` 对 flex 容器不生效，dock 变窄时内容被硬截断（用户确认非磨砂覆盖，背景场景实际关闭）；② 部分皮肤下 `--dsw-alias-label-primary` 对比度不足看不清（用户要求固定为黑色）。
-- **决策**：`bundles/dsh-deepseek-cost/lib/client.js` 的 `ROW_STYLE`：`flexWrap:'wrap'` 并移除 `minWidth/whiteSpace/overflow/textOverflow`（允许换行，随内容高度自动扩展）；`color` 从主题 token 改为固定 `#111`（近黑）。
-- **验证**：`node --check` 通过；用户 refresh GUI 后确认 dock 行完整显示、可读。
+- **决策**：`bundles/dsh-deepseek-cost/lib/client.js` 的 `ROW_STYLE`：`flexWrap:'wrap'` 并移除 `minWidth/whiteSpace/overflow/textOverflow`（允许换行，随内容高度自动扩展）；`color` 从主题 token 改为固定 `#111`（近黑）；`justifyContent:'center'` 居中（槽内全宽后内容不再左对齐）。
+- **验证**：`node --check` 通过；最终经 D-018/D-019 一并确认后用户验收：费用行完整、居中、黑色、可换行。**注意**：本决策的样式改动在 D-018（投影 wire）修复前因"费用行未渲染"而不可见，实际生效以 D-018 之后为准。
 - **遗留/权衡**：固定黑色在**深色/暗色皮肤**下可读性会下降；后续可加设置项（跟随 token / 固定深色 / 固定浅色）替代硬编码。设置页（settings.section）保持主题 token 不变。
 
 ## D-018 dsh-deepseek-cost 费用行不可见的根因修复：投影 wire 契约（0.1.2-rc.1）
@@ -296,4 +296,16 @@
 - **背景**：升级 0.1.2-rc.1 后费用行完全不显示。排查链：服务端 config 端点 200、宿主投影注册表含 tokenCost、真实事件上折叠与 view 均产出非空数据、客户端 `useProjection('tokenCost')` 却恒为 undefined。经比对 `dsh-session-stats`（工作正常）与宿主驱动源码定位：**0.1.2-rc.1 的投影契约要求定义带 `wire: { viewSchema, view }`**——宿主 `values()`/帧推送/缓存快照全部只认 `def.wire`，旧版裸 `view`/`schema` 字段被忽略；缺 `wire` 的投影不进 tail 投影块与 `session/projection` 帧，客户端视为"能力缺失"。此前所有颜色/换行修改"看不到效果"，是因为费用行元素从未被渲染（数据未送达），而非样式问题。
 - **决策**：`src/cost-projection.js` 的 `createTokenCostProjection()` 增加 `wire: { viewSchema: tokenCostSchema, view(state) }`（将原 `view` 移入 wire，viewSchema 用既有 tokenCostSchema）；host 侧源码生效、无需构建。
 - **验证**：ESM 语法通过；用真实 318 步会话跑 `apply → wire.view → viewSchema.parse`，输出 `deepseek-v4-flash: 303680 output tokens`；重启后用户确认费用行（黄底诊断标记）**出现**。随后移除黄底/红框临时标记，恢复 D-017 正式样式。
-- **备注**：D-017 的"看不到效果"结论修正为"未渲染"；原生统计行（StatsLine）截断是独立的核心布局问题，另行处理。
+- **备注**：D-017 的"看不到效果"结论修正为"未渲染"；原生统计行（StatsLine）截断是独立的核心布局问题，在 D-019 中一并解决。
+
+## D-019 composer.dock 槽行布局定稿：官方统计行截断修复 + 费用行样式收口
+
+- **日期**：2026-09-07
+- **状态**：已采纳（实施完成，用户最终验收通过）
+- **背景**：D-018 后费用行可见但仍有布局问题：① 官方统计行（StatsLine，与费用行同槽）被容器强行单行裁剪，长行只显示前半段；② 槽内元素全宽后费用行内容左对齐（不居中）；③ 官方统计行在 13px 下内容超出可视宽度。
+- **决策**：
+  1. `lib/client.js` 客户端 `apply` 注入**仅作用于 `conversation.composer.dock` 槽**的 `<style>`：`display:flex; flex-wrap:wrap; justify-content:center; overflow:visible`，槽内子元素 `width/max-width:100%; white-space:normal; overflow-wrap:anywhere`——放开被容器强制的单行裁剪（StatsLine 自身 CSS 为 width:100% 且无 nowrap，本意允许换行）。不影响其它区域。
+  2. 槽内首个子元素（官方统计行）字号压到 12px，尽量一行完整摆放，超宽时自然折行兜底。
+  3. 费用行 `ROW_STYLE` 加 `justifyContent:'center'` 恢复居中。
+- **验证**：用户重启后确认：官方统计行完整显示（12px 单行）、费用行完整居中黑色、两者布局稳定；**问题完全修复，最终验收通过**。
+- **说明**：该覆盖样式随 dsh-deepseek-cost 插件注入；若核心后续修复 dock 容器布局，可移除注入（保持"先跑真实 web profile 门槛"的回归习惯）。
