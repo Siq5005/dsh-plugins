@@ -99,6 +99,24 @@
       "repo": "https://github.com/aa2246740/dsh-watcher",
       "tags": ["observability", "watcher", "supervision", "real-time", "trajectory"],
       "added": "2026-09-07"
+    },
+    {
+      "name": "dsh-plugin-agent-workflow",
+      "description": "「工作流」标签页：按用户对话轮次展示模型请求/响应/工具调用执行链路，可检查真实记录的 system / messages[] / tools（JSON 树）与 token 缓存统计。外部仓库仅收录索引；当前仅适配 dsh@0.1.0-rc.8，0.1.2-rc.1 下需先验证",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add github:xuanyuanzhifeng/dsh-plugin-agent-workflow#v0.1.1 --workspace-root",
+      "repo": "https://github.com/xuanyuanzhifeng/dsh-plugin-agent-workflow",
+      "tags": ["workflow", "model-call", "trajectory", "json-tree", "token-stats", "external"],
+      "added": "2026-09-07"
+    },
+    {
+      "name": "dsh-replay",
+      "description": "会话时间旅行调试器（CLI，非 DSH 插件）：零依赖解码 session.jsonl.zstd（打包 chunk 行/崩溃残尾），离线渲染 HTML 时间线、双会话 diff、--stats 汇总；不依赖 DSH 插件 API，任意版本可用",
+      "type": "tool",
+      "install": "npx dsh-replay <session-id> --out replay.html",
+      "repo": "https://github.com/zoahdev/dsh-replay",
+      "tags": ["replay", "debugger", "trajectory", "offline", "cli", "external"],
+      "added": "2026-09-07"
     }
   ]
 }

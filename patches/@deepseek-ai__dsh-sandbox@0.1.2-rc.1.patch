@@ -1,0 +1,14 @@
+diff --git a/lib/index.js b/lib/index.js
+index 9fb79a71045e3231391f2cd9ea15a6b7b7057646..55c9ae2f88a8b95dc441b3933e2a7dcf18201882 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -92,6 +92,9 @@ function escalationHintMarker(subject) {
+ */
+ async function approveEscalation(request, approval) {
+ 	const { requestedMode: mode, effectiveMode, justification, subject } = request;
++	// A same-mode request is idempotent, not an escalation. This matters when a
++	// provider repeats the standing sandbox mode in a tool-call argument.
++	if (mode === effectiveMode) return effectiveMode;
+ 	if (!(WIDER_MODES[effectiveMode] ?? []).includes(mode)) throw new Error(`sandbox escalation to "${mode}" is not strictly wider than this call's current "${effectiveMode}" mode`);
+ 	if (approval.approver === void 0) throw new Error(`sandbox escalation to "${mode}" requires approval, but no approval service is composed`);
+ 	if (approval.agent === void 0) throw new Error(`sandbox escalation to "${mode}" requires approval, but the call has no agent to route it through`);

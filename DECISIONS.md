@@ -278,3 +278,4 @@
   3. swap 工具归档：`~/dsh-upgrade/swap-app.sh` 的可移植版收录为 `dsh-desktop/scripts/upgrade-app.sh`（REPO 由脚本位置推导、APP_PATH/DSH_UPGRADE_BACKUP 可覆盖、保留 0/5 预检与 4/5 复检门槛）。
 - **验证**（2026-09-07）：✅ repo `pnpm install` 无漂移、安装副本含幂等逻辑；✅ 补丁文件为规范 git diff；✅ `upgrade-app.sh` `bash -n` 通过；✅ 运行中 app 的 `node_modules/@deepseek-ai/dsh-sandbox` 已同步补丁文件（**下次宿主重启生效**，本决策不影响当前已加载模块与既有权限语义——幂等分支只豁免"请求模式 == 当前模式"，不放大权限阶梯）。
 - **语义/安全说明**：幂等分支不改变升级阶梯（`WIDER_MODES`）与审批路径，仅把"要求与现状相同的模式"从报错改为无操作返回；不授予任何额外访问。
+- **集合仓库归档**：补丁副本同步归档到本仓库 `patches/@deepseek-ai__dsh-sandbox@0.1.2-rc.1.patch`（含 `patches/README.md` 说明），权威应用位置为 `dsh-desktop` 的 `patches/` + `pnpm-workspace.yaml`。

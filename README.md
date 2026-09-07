@@ -37,6 +37,8 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 | Agent 预设 | 官方预设 | 梁神模式：面向 V4 Pro 的两阶段锚定预设（外部） |
 | SSH 运维 | 无 | dsh-ssh：主机管理 / Web 终端 / SFTP / 隧道 / 集群（外部） |
 | 主题皮肤 | 默认主题 | dsh-skins：皮肤中心 + 多款内置皮肤（外部） |
+| 会话回放 | 无 | dsh-replay（外部，CLI）：离线解码完整轨迹 / diff / 统计 |
+| 工作流视图 | 无 | dsh-plugin-agent-workflow（外部，仅 rc.8）：模型调用链路 |
 
 ## 功能插件
 
@@ -126,6 +128,8 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-desktop-c
 | `@linxin666/dsh-liangshen` | 梁神模式：两阶段锚定 agent 预设 | ![梁神模式](docs/screenshots/liangshen-mode.png) |
 | `@linxin666/dsh-skins` | 皮肤中心 + 多款内置皮肤 | ![皮肤中心](docs/screenshots/skin-center.png) |
 | `@linxin666/dsh-ssh` | SSH 运维：主机管理 / Web 终端 / SFTP / 隧道 / 集群 | ![SSH 面板](docs/screenshots/ssh-panel.png) |
+| `dsh-plugin-agent-workflow` | 工作流视图：按轮次展示模型请求 / 响应 / 工具调用链路（**仅适配 rc.8**，0.1.2-rc.1 需先验证） | — |
+| `dsh-replay` | 会话时间旅行调试器（CLI）：离线解码 `session.jsonl.zstd` → 时间线 / diff / 统计，零依赖 | — |
 
 安装：
 
@@ -133,6 +137,8 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-desktop-c
 dsh plugin --profile <name> add @linxin666/dsh-liangshen
 dsh plugin --profile <name> add @linxin666/dsh-skins
 dsh plugin --profile <name> add @linxin666/dsh-ssh
+dsh plugin --profile <name> add github:xuanyuanzhifeng/dsh-plugin-agent-workflow#v0.1.1 --workspace-root
+npx dsh-replay <session-id> --out replay.html
 ```
 
 > `dsh-skins` 的皮肤中心通常还需安装 `@linxin666/dsh-client-ui-web-ui-settings`。
