@@ -509,6 +509,35 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
       order: 25,
       label: '费用统计',
     }, SettingsPage))
+    // 0.1.2-rc.1 的 composer.dock 容器对长统计行做强行单行裁剪（官方 StatsLine
+    // 自身 width:100% 且无 nowrap，本意允许换行）。注入仅作用于该槽的覆盖样式，
+    // 放开换行/不裁剪，让官方统计行与费用行都能完整显示；不影响其它任何区域。
+    ensureDockWrapStyle()
+  }
+
+  let dockWrapStyleId = null
+  function ensureDockWrapStyle() {
+    if (dockWrapStyleId !== null) return
+    if (typeof document === 'undefined') return
+    const style = document.createElement('style')
+    style.id = 'dsh-deepseek-cost-dock-wrap'
+    style.textContent = [
+      '[data-slot="conversation.composer.dock"] {',
+      '  display: flex !important;',
+      '  flex-wrap: wrap !important;',
+      '  justify-content: center !important;',
+      '  overflow: visible !important;',
+      '}',
+      '[data-slot="conversation.composer.dock"] > * {',
+      '  width: 100% !important;',
+      '  max-width: 100% !important;',
+      '  min-width: 0 !important;',
+      '  white-space: normal !important;',
+      '  overflow-wrap: anywhere !important;',
+      '}',
+    ].join('\n')
+    document.head.appendChild(style)
+    dockWrapStyleId = style.id
   }
 
   module.exports = {
