@@ -1,3 +1,7 @@
 .pnpm-store/
 node_modules/
 release/
+.DS_Store
+# 第三方仓库评估克隆(自带 .git,不入集合;按 D-007 仅索引、不复制代码)
+dsh-agent-workflow/
+dsh-replay-zoah/

@@ -266,3 +266,15 @@
   - ✅ `smoke-web-profile` 实跑真实 web profile：`[my-plugins/dsh-watcher] loaded`、token 握手 303→cookie→200（27KB HTML）、全部插件 client bundle 干净链接。
   - ✅ swap 脚本 0/5 预检等价命令实测 PASS；`bash -n` 通过。
 - **维护/上游跟踪**：`linxin` 上游若发版改用 `settings.installSection()`，更新 `dsh-skins` 版本后**需同步移除本 patch**（`pnpm.patchedDependencies` 按 `name@version` 精确匹配，版本一变 patch 自动失效，届时按「先跑 `smoke-web-profile` 再移除」流程处理）。新核心再次改名 settings API 时，同一机制（patch + 真实 profile 门槛）复用。
+
+## D-016 dsh-sandbox same-mode 幂等修复固化（pnpm patch，随 dsh-desktop 仓库归档）
+
+- **日期**：2026-09-07
+- **状态**：已采纳（实施完成，见验证）
+- **背景**：2026-08-22 诊断（`docs/dsh-codex-terra-bash-diagnosis.md`，Codex Terra/Sol 路由的 bash 工具参数携带与会话当前模式相同的 `sandbox_permissions: danger-full-access`，`dsh-sandbox` 严格校验按"未更宽"拒绝，导致 Codex 路由 bash 未执行即失败）后，当时**手改**了运行中 app 内 `@deepseek-ai/dsh-sandbox/lib/index.js`。该手改属"写在 node_modules、重装即丢"的临时修复；D-014 升级换核后已被冲掉（0.1.2-rc.1 pristine 无此逻辑）。
+- **决策**：
+  1. 在 `dsh-desktop` 仓库用 `pnpm patch` 对 `@deepseek-ai/dsh-sandbox@0.1.2-rc.1` 固化该修复：`approveEscalation` 中 `mode === effectiveMode` 时**幂等返回 effectiveMode**（same-mode 非升级，不进审批、不抛错），其余更宽升级路径保持不变；补丁文件 `patches/@deepseek-ai__dsh-sandbox@0.1.2-rc.1.patch` + `pnpm.patchedDependencies` 随仓库提交，重装/换核自动重放。
+  2. 诊断文档规范化（原文件为单行字面 `\n`）并归档到 `dsh-desktop/docs/dsh-codex-terra-bash-diagnosis.md`，随补丁同仓记录。
+  3. swap 工具归档：`~/dsh-upgrade/swap-app.sh` 的可移植版收录为 `dsh-desktop/scripts/upgrade-app.sh`（REPO 由脚本位置推导、APP_PATH/DSH_UPGRADE_BACKUP 可覆盖、保留 0/5 预检与 4/5 复检门槛）。
+- **验证**（2026-09-07）：✅ repo `pnpm install` 无漂移、安装副本含幂等逻辑；✅ 补丁文件为规范 git diff；✅ `upgrade-app.sh` `bash -n` 通过；✅ 运行中 app 的 `node_modules/@deepseek-ai/dsh-sandbox` 已同步补丁文件（**下次宿主重启生效**，本决策不影响当前已加载模块与既有权限语义——幂等分支只豁免"请求模式 == 当前模式"，不放大权限阶梯）。
+- **语义/安全说明**：幂等分支不改变升级阶梯（`WIDER_MODES`）与审批路径，仅把"要求与现状相同的模式"从报错改为无操作返回；不授予任何额外访问。
