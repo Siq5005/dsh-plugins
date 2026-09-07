@@ -279,3 +279,12 @@
 - **验证**（2026-09-07）：✅ repo `pnpm install` 无漂移、安装副本含幂等逻辑；✅ 补丁文件为规范 git diff；✅ `upgrade-app.sh` `bash -n` 通过；✅ 运行中 app 的 `node_modules/@deepseek-ai/dsh-sandbox` 已同步补丁文件（**下次宿主重启生效**，本决策不影响当前已加载模块与既有权限语义——幂等分支只豁免"请求模式 == 当前模式"，不放大权限阶梯）。
 - **语义/安全说明**：幂等分支不改变升级阶梯（`WIDER_MODES`）与审批路径，仅把"要求与现状相同的模式"从报错改为无操作返回；不授予任何额外访问。
 - **集合仓库归档**：补丁副本同步归档到本仓库 `patches/@deepseek-ai__dsh-sandbox@0.1.2-rc.1.patch`（含 `patches/README.md` 说明），权威应用位置为 `dsh-desktop` 的 `patches/` + `pnpm-workspace.yaml`。
+
+## D-017 dsh-deepseek-cost 计费行显示修复：固定深色 + 允许换行
+
+- **日期**：2026-09-07
+- **状态**：已采纳（实施完成，见验证）
+- **背景**：升级 0.1.2-rc.1 + dsh-skins 0.2.9 后，composer.dock 计费行出现：① 内容只显示前段——原样式 `whiteSpace:nowrap + overflow:hidden + textOverflow:ellipsis` 用在 **flex 容器**上，`text-overflow` 对 flex 容器不生效，dock 变窄时内容被硬截断（用户确认非磨砂覆盖，背景场景实际关闭）；② 部分皮肤下 `--dsw-alias-label-primary` 对比度不足看不清（用户要求固定为黑色）。
+- **决策**：`bundles/dsh-deepseek-cost/lib/client.js` 的 `ROW_STYLE`：`flexWrap:'wrap'` 并移除 `minWidth/whiteSpace/overflow/textOverflow`（允许换行，随内容高度自动扩展）；`color` 从主题 token 改为固定 `#111`（近黑）。
+- **验证**：`node --check` 通过；用户 refresh GUI 后确认 dock 行完整显示、可读。
+- **遗留/权衡**：固定黑色在**深色/暗色皮肤**下可读性会下降；后续可加设置项（跟随 token / 固定深色 / 固定浅色）替代硬编码。设置页（settings.section）保持主题 token 不变。

@@ -145,12 +145,14 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
   }
 
   // ---------- 费用行（conversation.composer.dock） ----------
-  // 颜色一律走 DSH 主题 token（--dsw-alias-*），深/浅色模式自动适配。
+  // D-017：颜色固定深色（不再跟随皮肤 token——部分皮肤下 label-primary 对比
+  // 度不足看不清）；允许换行（原 nowrap+overflow:hidden 在 flex 容器里
+  // text-overflow 不生效，dock 变窄时内容被硬截断只剩前段）。
+  // 注意：深色/暗色皮肤下黑色字可读性差，后续可加设置项切换。
   const ROW_STYLE = {
-    display: 'flex', alignItems: 'center', gap: 6,
+    display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
     fontSize: 12, lineHeight: '20px',
-    color: 'var(--dsw-alias-label-primary)',
-    minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+    color: '#111',
     cursor: 'default',
   }
   const SEP_STYLE = { opacity: 0.45 }
