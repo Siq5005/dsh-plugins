@@ -234,3 +234,35 @@
   - `helper.py`：场景序列播放（searching 翻书 / working 坐姿 / question 表情）、入场动画（enter）、空闲巡逻走动（窗口平移、不持久化位置）、双击戳/右键摸头、拖拽抓取/放下姿势、补全 think/work/wait/float motion、clip.scale 渲染。
   - 验证：离屏 8 项断言通过；真实窗口冒烟（翻书→坐姿→提问→待命）通过；JS 测试 20/20；helper 二进制重新打包（45MB）。
 - **备注**：`leave`（退场）素材缺失，等上游补传或 PR 合并后再加；上游若合入 PR #23 的 5 文件重构，可再评估是否跟进其全部编排逻辑。
+
+## D-014 版本基准升级：rc.6 → 0.1.2-rc.1（next 线）
+
+- **日期**：2026-09-07
+- **状态**：已采纳（验证结果见下，随升级提交回填）
+- **背景**：本机启用 dsh-watcher 实时监督插件（peer 要求 `^0.1.2-rc.1`，README 的 rc.8 声明为旧文案）；linxin 插件 0.3.x 声明 `engines.dsh >= 0.1.2-rc.1` 并已装 0.3.17；官方 npm `next` 线即 0.1.2-rc.1。据此**修改 D-008 的 rc.6 基准**。
+- **决策**：
+  1. `dsh-desktop`（独立仓库）依赖整体从 `^0.1.0-rc.6` 切到 `^0.1.2-rc.1`：186 个 pin + 配对包（cordis `^4.0.2`、cordis-plugin-hmr `^1.0.17` 等）；**无 0.1.2-rc.1 的 14 个包按实际最新可用版本**（如 `dsh-client-runtime`→`0.1.1-rc.2`、`dsh-client-schema-form`/`dsh-client-web-react`→`0.1.0-rc.7`）。
+  2. 保留 D-008/D-010 全部工程约束：`asar:false`、peer 显式写入 dependencies、共享 `~/.dsh`、electron-builder 打包、冒烟脚本。
+  3. 0.1.2-rc.1 适配点（已验证并修复）：`healProfilesModuleFallback` 变异步对象参数 `{ installAnchor, profile, home }` 且需在 `loadProfile` 之后调用；Web 根路径新增 launch-token 鉴权（`connection.authenticatedUrl()` 签发 `?token=`，303→cookie 握手），桌面壳窗口 URL 需带 token、cmdline 需 `--no-open` 防弹系统浏览器。
+  4. `web` profile：linxin 套件升 `dsh-ssh`/`dsh-liangshen`/`dsh-client-ui-web-ui-settings` `^0.3.17`、`dsh-skins` `^0.2.9`；新增 `dsh-watcher`（github:aa2246740/dsh-watcher）。
+  5. 本地四个 bundles（dafeiyu-mac / deepseek-cost / vision-adapter / workbench）在 0.1.2-rc.1 下回归；`dsh-vision-adapter` 的 host peer 仍为 `^0.1.0-rc.6`，必要时连同其实现一起升级。
+- **验证**（2026-09-07）：
+  - ✅ `pnpm install` 全套（919 包解析）；`smoke-profile`（desktop-shell 行 index 145 + agent-presets 注入）；`smoke-boot`（in-process boot + token 握手 + 200 HTML）；**Electron 无头冒烟 `[dsh-desktop] ready (profile: desktop)`**。
+  - ✅ profile `--dump-config` 578 行：watcher / ssh / workbench / skins / liangshen / 四个本地 bundle / base / web-app 全部挂载。
+  - ⏳ GUI 重启后回归：watcher 眼睛可用、linxin 0.3.17 正常、四个本地 bundle 行为、旧会话数据无损（结果回填本节）。
+- **遗留/风险**：Electron 二进制保持 43.4.0（只换 `Resources/app` 内容层）；若 0.1.2-rc.1 web frontend 布局/行为变化较大，桌面窗口尺寸与托盘交互需回归；预览期 API 仍可能漂移，`dsh-desktop` 的薄适配层（host.js/index.js）为后续变更的唯一触点。升级过程保留 `~/dsh-upgrade/backup-app-rc6/` 回滚材料。
+
+## D-015 插件针对新核心的兼容层机制：pnpm patch + 真实 web profile 门槛
+
+- **日期**：2026-09-07
+- **状态**：已采纳（实施完成，见验证）
+- **背景**：D-014 升级落地后，应用启动即崩溃——`@deepseek-ai/dsh-settings@0.1.2-rc.1` 删除了 `installSettingsSection` / `settingsNamespace` 两个导出（改为 `settings.installSection()` 方法），而 `@linxin666/dsh-client-ui-skin-center@0.2.9`（经 `dsh-skins` patch 间接引入，`engines.dsh` 虚标 `>=0.1.1-rc.1`）仍在 `import ... from "@deepseek-ai/dsh-settings"` 引用它们，ESM 链接期 SyntaxError 炸掉整个 boot。旧 swap 脚本自检只跑了**隔离 DSH_HOME 的 desktop profile**，未覆盖真实 web profile，因此没拦住。
+- **决策**：
+  1. **兼容层走 pnpm patch 固化**（不升级、不禁用任何插件）：在 web profile 对 `dsh-client-ui-skin-center@0.2.9` 打 patch——新增 `lib/settings-compat.js`（`settingsNamespace` 恒等；`installSettingsSection` 桥接到 `sctx.settings.installSection(ctx, ns, schema, entry, hooks)`），并改 `lib/index.js` 首行导入到本地 shim。通过 `pnpm patch`/`pnpm patch-commit` 记录进 `pnpm.patchedDependencies`（package.json + pnpm-lock.yaml，带内容 hash），重装/恢复可自动重放；禁止再手改 `node_modules`。
+  2. **升级门槛覆盖真实 web profile**（防再犯）：`dsh-desktop` 仓库新增 `scripts/smoke-web-profile.mjs`——用**真实 ~/.dsh 的 web profile** + 当前核心做无头 boot，断言 launch-token 握手后根页 200（任何插件 client bundle 链接错误都会在此暴露）。`~/dsh-upgrade/swap-app.sh` 升级为：**0/5 预检**（新核心 + 真实 web profile 可 boot 才允许替换）→ 备份 → 替换 → 隔离桌面冒烟 → **4/5 复检**（替换后副本再 boot 真实 web profile）→ 失败自动回滚。
+  3. 全 profile 扫描确认：skin-center 是唯一旧 settings API 消费者（web-ui-settings/liangshen/ssh/skins 与本地 bundles 均无 `installSettingsSection`/`settingsNamespace` 直接引用）。
+- **验证**（2026-09-07）：
+  - ✅ `pnpm patch-commit` 固化（lockfile `patchedDependencies` hash `8843d8…`；manifest 同步记录；`pnpm install` 无漂移）。
+  - ✅ `smoke-web-profile` 实跑真实 web profile：`[my-plugins/dsh-watcher] loaded`、token 握手 303→cookie→200（27KB HTML）、全部插件 client bundle 干净链接。
+  - ✅ swap 脚本 0/5 预检等价命令实测 PASS；`bash -n` 通过。
+- **维护/上游跟踪**：`linxin` 上游若发版改用 `settings.installSection()`，更新 `dsh-skins` 版本后**需同步移除本 patch**（`pnpm.patchedDependencies` 按 `name@version` 精确匹配，版本一变 patch 自动失效，届时按「先跑 `smoke-web-profile` 再移除」流程处理）。新核心再次改名 settings API 时，同一机制（patch + 真实 profile 门槛）复用。

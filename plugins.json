@@ -90,6 +90,15 @@
       "repo": "https://github.com/zhu1090093659/dsh-web-ui",
       "tags": ["ssh", "remote", "sftp", "tunnel", "cluster", "dsh-web-ui"],
       "added": "2026-08-17"
+    },
+    {
+      "name": "dsh-watcher",
+      "description": "只读 Agent 工作路径观察器（实时监督）：会话头部的\"眼睛\"，把官方 ConversationSnapshot 折叠为轮次/阶段/步骤/并行分支/工具证据，展示供应商已写入会话的可见推理；不注入消息、不干预 Agent、不重建隐藏思维链。需 DSH >= 0.1.2-rc.1",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add github:aa2246740/dsh-watcher",
+      "repo": "https://github.com/aa2246740/dsh-watcher",
+      "tags": ["observability", "watcher", "supervision", "real-time", "trajectory"],
+      "added": "2026-09-07"
     }
   ]
 }
