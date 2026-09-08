@@ -364,3 +364,21 @@
   - [ ] **A8** pluginVersion 读 package.json——去掉硬编码 `'0.1.0'`（alpha.13）
   - B 组（可选，未立项，待取舍）：B1 气泡显示模式 / B2 右键菜单扩展（打开 WebUI + 设置写回 + mini 预设）/ B3 多任务状态卡 / B4 Swift/AppKit 原生 helper 参考
 - **遗留/风险**：清单核实基准为上游 main（09-05 v0.1.9）与本地源码现状；宿主 0.1.2-rc.1 事件字段是否携带 effort/最新 cwd 需在实施 A-2/A-6 前实测；上游无 API watch 手段（D-013 已验证订阅 API 404），后续按版本/PR URL 人工周期性复核。
+
+## D-021 dsh-vision-adapter 适配 0.1.2-rc.1 两处 API 漂移 + 视觉端点切官方 vision-exp
+
+- **日期**：2026-09-08
+- **状态**：已采纳（实施完成；代码 58/58 测试通过，配置实测生效）
+- **背景**：D-014 升级 0.1.2-rc.1 后 GUI 重启回归（D-014 遗留项）暴露 dsh-vision-adapter 实际不可用，用户症状：贴图后模型无法分析图片；直接选 vision 模型报 `registration.adapter.prepareCall is not a function`；autoCaption 开启时发图卡死/响应极慢。逐层实测定位到三件事：
+  1. **会话事件 API 漂移**：核心 `Session` 删除公开 `.events` 数组 getter（rc.6 有 `get events()`），改由 `snapshotEvents()`（全量冻结数组，语义等同旧 `.events`）或 `ownEvents()` 提供；插件 `analyze_image` 仍读 `exec.agent.session.events` → 恒 undefined → `VISION_OTHER 无法访问会话事件日志`，任何图都解析不了。
+  2. **LlmAdapter 契约新增 `prepareCall`**：0.1.2-rc.1 的 `LlmRuntime` 在 `prepareCall` 与 `adapterStream` 两条路径**无条件调用** `registration.adapter.prepareCall(...)`（rc.6 只要求 stream/…）；插件两个对象字面量包装（stealth 接管路由 / 隐藏原生路由）未实现 → 选 vision 模型即报 `registration.adapter.prepareCall is not a function`。`imageRequestPricing` 同为新契约，一并补上。
+  3. **视觉端点配置失效 + autoCaption 阻塞**：settings 文档（与 profile 补丁层冲突）曾为 `enabled:false`；第三方端点 yzcld 的 key 实测 401 `INVALID_API_KEY`；`autoCaption:true` 时每次贴图在发主模型前阻塞调用视觉端点（timeoutMs 60000）→ 端点不稳/失效时表现为"发图卡死、不调模型、很慢"。
+- **决策**：
+  1. `src/session-refs.js` 新增纯函数 `sessionEventsOf(agent)`：优先 `snapshotEvents()`、次 `ownEvents()`、兜底旧 `session.events` 数组，兼容 rc.6 与 0.1.2-rc.1 两代核心形状；`src/analyze-tool.js` 改用之。
+  2. `src/adapter.js` 的 `createStealthAdapter` 与 `createHiddenNativeAdapter` 补齐 `prepareCall(provider, model, signal)`（语义同 rc1 `LlmAdapter` 基类默认实现：`resolveModel` 绑定 + 本 adapter `stream` 分发）与 `imageRequestPricing`（委托原生 adapter），补全 rc1 对象字面量 adapter 方法面。
+  3. **配置对齐**：`~/.dsh/settings.yaml` 的 `dsh-vision-adapter.enabled` 由 false 改 true（与权威补丁层一致，改前已备份）；视觉端点由失效的 yzcld 切到**官方 DeepSeek 多模态** `https://api.deepseek.com` + `deepseek-v4-flash-vision-exp`（0.1.2-rc.1 官方 llm-deepseek 已原生支持 image 输入，settings 的 `llm-deepseek.models` 也已声明该模型 `input: [text, image]`；credentials `DEEPSEEK_API_KEY` 实测 HTTP 200 能正确识图）；`autoCaption:false` 消除贴图阻塞。`settings.yaml`（live 覆盖层）与 web profile `cordis.patch.yml`（权威层，需重启生效）两处同步修改，均留 `.bak-20260908-vision-fix` 备份。
+- **验证**：
+  - TDD：先写 rc1 Session 形状（snapshotEvents/ownEvents）与 prepareCall 存在性的失败测试（各红），再实现转绿；**58/58 测试通过**（原 53 + analyze-tool 2 + adapter 3），全部源文件 `node --check` 通过。
+  - 运行时实测链路：附件完整 id 解析成功 → 会话日志读取修复生效（GUI 重启后）；官方端点 `POST https://api.deepseek.com/chat/completions`（model `deepseek-v4-flash-vision-exp` + 该截图 WebP）返回 HTTP 200 并正确描述画面。
+  - 配置端点实测：`enabled=true autoCaption=false model=deepseek-v4-flash-vision-exp baseURL=https://api.deepseek.com`。
+- **遗留/风险**：profile 补丁层（权威配置）在 GUI 启动时加载，用户需**重启 DSH Desktop** 使工具运行时读到官方端点与 autoCaption=false；0.1.2-rc.1 起官方 vision 模型可原生收图，`deepseek-v4-flash-vision-exp` 为最干净路径，dsh-vision-adapter 的 analyze_image 作为文本主模型按需"眼睛"保留；host peer 仍为 `^0.1.0-rc.6`（语义满足 0.1.2-rc.1），如需收紧可随下一版统一升级。

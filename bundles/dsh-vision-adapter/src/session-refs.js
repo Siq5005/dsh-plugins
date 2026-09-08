@@ -11,6 +11,31 @@
 import { rewriteImagesDeep } from './rewrite.js'
 
 /**
+ * 从工具执行上下文解析会话事件数组，兼容两代核心形状：
+ *   - rc.6 及旧测试：`agent.session.events` 直接是数组；
+ *   - 0.1.2-rc.1+：Session 删除 `.events` getter，改由
+ *     `snapshotEvents()`（全量日志，含继承前缀）或 `ownEvents()` 取得。
+ * 优先 snapshotEvents()（语义等同旧 `.events` 的全量冻结数组），
+ * 其次 ownEvents()，最后兜底旧数组形状。
+ * @param {object|undefined} agent - `exec.agent`（可能只带 id）。
+ * @returns {Array<object>|undefined} 事件数组，无法解析时 undefined。
+ */
+export function sessionEventsOf(agent) {
+  const session = agent && agent.session
+  if (!session) return undefined
+  if (typeof session.snapshotEvents === 'function') {
+    const events = session.snapshotEvents()
+    if (Array.isArray(events)) return events
+  }
+  if (typeof session.ownEvents === 'function') {
+    const events = session.ownEvents()
+    if (Array.isArray(events)) return events
+  }
+  if (Array.isArray(session.events)) return session.events
+  return undefined
+}
+
+/**
  * 收集会话事件日志中出现的所有 attachment 引用（按首次出现顺序去重）。
  * 覆盖 user/message（消息直接携带）、assistant/message 与 tool/result（嵌套在
  * data.message 下），并下钻 tool-result 嵌套 content。

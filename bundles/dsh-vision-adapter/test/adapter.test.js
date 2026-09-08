@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   createStealthAdapter,
+  createHiddenNativeAdapter,
   autoCaptionImages,
   NATIVE_ROUTE,
 } from '../src/adapter.js'
@@ -128,6 +129,77 @@ test('stealth adapter: providerInfo 显示名可配置（默认 DeepSeek）', ()
     displayName: 'DeepSeek (vision)',
   })
   assert.equal(vision.providerInfo('deepseek-vision').name, 'DeepSeek (vision)')
+})
+
+// 0.1.2-rc.1 起 LlmRuntime 无条件调用 registration.adapter.prepareCall()。
+// 对象字面量 adapter 必须自带 prepareCall，否则报
+// "registration.adapter.prepareCall is not a function"。
+test('stealth adapter: prepareCall 存在并解析 model（含 image 输入）', async () => {
+  const { ctx } = makeCtx()
+  const adapter = createStealthAdapter(ctx, {
+    delegateProvider: NATIVE_ROUTE,
+    imageMemory: createImageMemory(10),
+    config: () => ({ autoCaption: false }),
+    nativeAdapter: () => nativeAdapter,
+  })
+  const prepared = await adapter.prepareCall('deepseek-official', 'deepseek-chat')
+  assert.equal(prepared.model.id, 'deepseek-chat')
+  assert.deepEqual(prepared.model.inputModalities, ['text', 'image'])
+  assert.equal(typeof prepared.stream, 'function')
+  // prepared.stream 走同一改写委托链路
+  const delegated = []
+  const llm = {
+    stream: async function* (options) {
+      delegated.push(options)
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    },
+  }
+  const streamAdapter = createStealthAdapter(
+    { llm, get: () => undefined },
+    {
+      delegateProvider: NATIVE_ROUTE,
+      imageMemory: createImageMemory(10),
+      config: () => ({ autoCaption: false }),
+      nativeAdapter: () => nativeAdapter,
+    },
+  )
+  const prepared2 = await streamAdapter.prepareCall('deepseek-official', 'deepseek-chat')
+  for await (const _ of prepared2.stream({
+    provider: 'deepseek-official',
+    model: 'deepseek-chat',
+    messages: [{ role: 'user', content: [imageBlock('sha256:a'), { type: 'text', text: '看图' }] }],
+  })) { /* consume */ }
+  assert.equal(delegated.length, 1)
+  assert.equal(delegated[0].provider, NATIVE_ROUTE)
+  assert.equal(delegated[0].messages[0].content[0].type, 'text')
+})
+
+test('hidden native adapter: prepareCall 委托原生 resolveModel/stream', async () => {
+  const adapter = createHiddenNativeAdapter({
+    ...nativeAdapter,
+    stream: async function* () {
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    },
+  })
+  const prepared = await adapter.prepareCall(NATIVE_ROUTE, 'deepseek-chat')
+  assert.equal(prepared.model.id, 'deepseek-chat')
+  assert.equal(typeof prepared.stream, 'function')
+})
+
+test('stealth / hidden adapter: 兼容 rc1 LlmAdapter 默认方法面（imageRequestPricing 等）', () => {
+  const { ctx } = makeCtx()
+  const stealth = createStealthAdapter(ctx, {
+    delegateProvider: NATIVE_ROUTE,
+    imageMemory: createImageMemory(10),
+    config: () => ({ autoCaption: false }),
+    nativeAdapter: () => nativeAdapter,
+  })
+  const hidden = createHiddenNativeAdapter(nativeAdapter)
+  for (const adapter of [stealth, hidden]) {
+    assert.equal(typeof adapter.prepareCall, 'function')
+    assert.equal(typeof adapter.imageRequestPricing, 'function')
+    assert.equal(typeof adapter.providerRetryPolicy, 'function')
+  }
 })
 
 test('autoCaptionImages: 开启时自动描述并写入缓存', async () => {

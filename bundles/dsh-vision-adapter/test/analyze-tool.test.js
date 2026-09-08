@@ -6,7 +6,7 @@ import { createImageMemory, createAnswerCache } from '../src/image-memory.js'
 const REF_A = { attachmentId: 'sha256:a', mediaType: 'image/png', bytes: 1, width: 1, height: 1 }
 const REF_B = { attachmentId: 'sha256:b', mediaType: 'image/jpeg', bytes: 2, width: 1, height: 1 }
 
-function makeHarness({ visionImpl } = {}) {
+function makeHarness({ visionImpl, sessionShape } = {}) {
   const stored = new Map([
     ['sha256:a', { data: Buffer.from([1, 2]), mediaType: 'image/png' }],
     ['sha256:b', { data: Buffer.from([3, 4, 5]), mediaType: 'image/jpeg' }],
@@ -51,9 +51,29 @@ function makeHarness({ visionImpl } = {}) {
   ]
   const exec = {
     signal: new AbortController().signal,
-    agent: { session: { events } },
+    agent: { session: toSession(events, sessionShape) },
   }
   return { tool, exec, calls, imageMemory, answerCache }
+}
+
+/**
+ * 0.1.2-rc.1 起 Session 不再暴露 `events` 数组，改用
+ * `snapshotEvents()`/`ownEvents()`（见 dsh-session lib/types）。
+ * 用形状构造真实核心给的 Session 外壳，验证插件对两种形状都兼容。
+ * @param {Array<object>} events
+ * @param {'rc6-events'|'rc1-methods'|'rc1-ownOnly'|undefined} shape
+ */
+function toSession(events, shape) {
+  if (shape === 'rc1-methods') {
+    return {
+      snapshotEvents: () => events,
+      ownEvents: () => events,
+    }
+  }
+  if (shape === 'rc1-ownOnly') {
+    return { ownEvents: () => events }
+  }
+  return { events }
 }
 
 test('analyze_image: 成功返回文字并写入缓存与描述记忆', async () => {
@@ -115,4 +135,19 @@ test('analyze_image: 参数校验', async () => {
   await assert.rejects(() => h.tool.execute({ attachmentIds: [], question: 'Q' }, h.exec))
   await assert.rejects(() => h.tool.execute({ attachmentIds: ['sha256:a'], question: '' }, h.exec))
   await assert.rejects(() => h.tool.execute({ attachmentIds: ['x', 'y', 'z', 'w', 'v'], question: 'Q' }, h.exec))
+})
+
+test('analyze_image: rc1 Session（snapshotEvents 方法）形状可正常看图', async () => {
+  // 0.1.2-rc.1 起核心 Session 删除 .events 数组，工具应兼容 snapshotEvents()/ownEvents()。
+  const h = makeHarness({ sessionShape: 'rc1-methods' })
+  const result = await h.tool.execute({ attachmentIds: ['sha256:a'], question: '这是什么？' }, h.exec)
+  assert.equal(result, '一只猫')
+  assert.equal(h.calls.length, 1)
+})
+
+test('analyze_image: rc1 Session 仅 ownEvents 时也可正常看图', async () => {
+  const h = makeHarness({ sessionShape: 'rc1-ownOnly' })
+  const result = await h.tool.execute({ attachmentIds: ['sha256:a'], question: '这是什么？' }, h.exec)
+  assert.equal(result, '一只猫')
+  assert.equal(h.calls.length, 1)
 })

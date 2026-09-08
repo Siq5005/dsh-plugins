@@ -163,6 +163,9 @@ export function createStealthAdapter(ctx, deps) {
     providerRetryPolicy(provider) {
       return native().providerRetryPolicy(provider)
     },
+    imageRequestPricing(provider, model) {
+      return native().imageRequestPricing(provider, model)
+    },
     async listModels(provider) {
       const listed = await native().listModels(provider)
       return (listed ?? []).map((model) => ({
@@ -174,6 +177,16 @@ export function createStealthAdapter(ctx, deps) {
     async resolveModel(provider, model, signal) {
       const base = await native().resolveModel(provider, model, signal)
       return { ...base, provider, inputModalities: ['text', 'image'] }
+    },
+    // 0.1.2-rc.1：LlmRuntime 无条件调用 registration.adapter.prepareCall()。
+    // 对象字面量 adapter 需自带该方法，语义同 LlmAdapter 基类默认实现——
+    // 绑定本次 resolveModel 的 model 信息与到本 adapter 的 stream 分发。
+    async prepareCall(provider, model, signal) {
+      const adapter = this
+      return {
+        model: await adapter.resolveModel(provider, model, signal),
+        stream: (options) => adapter.stream(options),
+      }
     },
     ...wrappedStream,
   }
@@ -191,11 +204,22 @@ export function createHiddenNativeAdapter(nativeAdapter) {
     providerRetryPolicy(provider) {
       return nativeAdapter.providerRetryPolicy(provider)
     },
+    imageRequestPricing(provider, model) {
+      return nativeAdapter.imageRequestPricing(provider, model)
+    },
     async listModels() {
       return []
     },
     async resolveModel(provider, model, signal) {
       return nativeAdapter.resolveModel(provider, model, signal)
+    },
+    // 0.1.2-rc.1：同 stealth adapter，补齐 LlmRuntime 需要的 prepareCall。
+    async prepareCall(provider, model, signal) {
+      const adapter = this
+      return {
+        model: await adapter.resolveModel(provider, model, signal),
+        stream: (options) => adapter.stream(options),
+      }
     },
     async *stream(options) {
       yield* nativeAdapter.stream(options)

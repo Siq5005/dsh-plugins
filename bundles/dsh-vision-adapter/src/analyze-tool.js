@@ -15,7 +15,7 @@
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { callVisionModel } from './vision-client.js'
-import { lookupAttachmentRef } from './session-refs.js'
+import { lookupAttachmentRef, sessionEventsOf } from './session-refs.js'
 import { contentHash } from './image-memory.js'
 
 const MAX_IMAGES = 4
@@ -72,7 +72,7 @@ export function createAnalyzeImageTool(ctx, deps) {
         return JSON.stringify({ ok: false, code: 'VISION_OTHER', retryable: false, reason: '部署环境未挂载附件服务' })
       }
 
-      const events = exec.agent && exec.agent.session ? exec.agent.session.events : undefined
+      const events = sessionEventsOf(exec.agent)
       if (!Array.isArray(events)) {
         return JSON.stringify({ ok: false, code: 'VISION_OTHER', retryable: false, reason: '无法访问会话事件日志' })
       }
