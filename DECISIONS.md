@@ -234,6 +234,7 @@
   - `helper.py`：场景序列播放（searching 翻书 / working 坐姿 / question 表情）、入场动画（enter）、空闲巡逻走动（窗口平移、不持久化位置）、双击戳/右键摸头、拖拽抓取/放下姿势、补全 think/work/wait/float motion、clip.scale 渲染。
   - 验证：离屏 8 项断言通过；真实窗口冒烟（翻书→坐姿→提问→待命）通过；JS 测试 20/20；helper 二进制重新打包（45MB）。
 - **备注**：`leave`（退场）素材缺失，等上游补传或 PR 合并后再加；上游若合入 PR #23 的 5 文件重构，可再评估是否跟进其全部编排逻辑。
+- **勘误（2026-09-08）**：本决策记录的「PR #23 开放中」已过期——PR #23 已于 **2026-08-22 关闭且未合并**（`merged_at=null`，改动保留在 Serendipity-wu02 的 fork 分支）。主线从不会吸收其 5 文件重构，`leave` 素材主线也始终未补。本地选择性移植被证实是正确路线，维持独立实现；素材层面本地 `assets/pet/`（PR #23 帧 + photoWall）已超主线，无需再照单同步主线素材。完整盘点见 D-020。
 
 ## D-014 版本基准升级：rc.6 → 0.1.2-rc.1（next 线）
 
@@ -309,3 +310,57 @@
   3. 费用行 `ROW_STYLE` 加 `justifyContent:'center'` 恢复居中。
 - **验证**：用户重启后确认：官方统计行完整显示（12px 单行）、费用行完整居中黑色、两者布局稳定；**问题完全修复，最终验收通过**。
 - **说明**：该覆盖样式随 dsh-deepseek-cost 插件注入；若核心后续修复 dock 容器布局，可移除注入（保持"先跑真实 web profile 门槛"的回归习惯）。
+
+## D-020 上游 QCYTSN/dsh-dafeiyu 同步盘点：PR #23 关闭未合并 + 已合并功能差距清单
+
+- **日期**：2026-09-08
+- **状态**：已采纳（盘点落库；A 组作为 dsh-dafeiyu-mac 下个版本开发项）
+- **背景**：用户要求（1）更新 decision 中过时的上游跟踪状态；（2）排查上游自本地快照（2026-08-17/18，v0.1.0-alpha.11 前后）以来**已合并**但本地复刻缺失的 PR。上次上游跟踪记录是 D-013（2026-08-18，记 PR #23「开放中」）。2026-09-08 实测上游现状：main HEAD `f4f4482` = **release v0.1.9**（09-05 发布），其后无新提交；stable 线已从 alpha.11 走到 v0.1.9（中间 0.1.0 稳定化、0.1.2/0.1.3 于 8/17–8/22 之间发布，明细以[上游 CHANGELOG](https://github.com/QCYTSN/dsh-dafeiyu/blob/main/CHANGELOG.md) 为准）。
+- **上游现状要点**：
+  1. 开放 PR 为空（`pulls?state=open` = `[]`）；开放 issue 2 个：[#39](https://github.com/QCYTSN/dsh-dafeiyu/issues/39)（依赖缺失/WSL 卡死，0.1.7/0.1.8 已部分缓解）、[#22](https://github.com/QCYTSN/dsh-dafeiyu/issues/22)（4K/高 DPI 素材、60FPS、settings 槽 key 校验——后者本地早已适配）。
+  2. **PR #23（动画扩展）已于 2026-08-22 关闭且未合并**——勘误见 D-013。
+  3. 未合并社区 PR（设计参考，不跟进）：[#64](https://github.com/QCYTSN/dsh-dafeiyu/pull/64) 3D 虎鲸（Electron+Three.js 渲染层）、[#60](https://github.com/QCYTSN/dsh-dafeiyu/pull/60) 设置卡片适配 PluginCard UI。
+- **已合并功能差距清单**（对照本地 dsh-dafeiyu-mac 源码逐一核实；范围 = 快照后合并的 alpha.12 → v0.1.9）：
+  - **A 组：缺失 → 列入下个版本开发项**
+    1. **启动健壮性双护栏**（0.1.7 [#62](https://github.com/QCYTSN/dsh-dafeiyu/pull/62) import 期缺依赖优雅降级 + 0.1.8 [#65](https://github.com/QCYTSN/dsh-dafeiyu/pull/65) 激活失败不拖死 DSH boot）：本地 `apply`/`mount`、`settings.watch` 回调、session 事件监听均无异常包裹；参照 D-015（宿主 API 漂移曾整树崩溃）教训，采纳价值最高。注：import 期护栏需把顶层 schemastery 依赖改为惰性加载（`Config` 目前是模块作用域），比激活期包裹工作量更大。
+    2. **reasoning effort 状态显示**（0.1.6 [#43](https://github.com/QCYTSN/dsh-dafeiyu/pull/43)/[#53](https://github.com/QCYTSN/dsh-dafeiyu/pull/53)）：气泡显示本请求实际生效的推理档位并跨 thinking/tool/waiting 保持；本地 reducer/helper/client 无 effort 概念（grep 零命中）。前置：实测宿主事件里 effort 字段形态。
+    3. **拖拽反应序列**（0.1.6 [#45](https://github.com/QCYTSN/dsh-dafeiyu/pull/45)→[#52](https://github.com/QCYTSN/dsh-dafeiyu/pull/52) 整合 + [#55](https://github.com/QCYTSN/dsh-dafeiyu/pull/55) macOS 对齐）：release/dizzy/protest 反应序列、reduced-motion 降级、被抓取可打断；本地仅抓取/放下两姿势，且 manifest 已有 `dragging_cry`/`dragging_landed`/`error_dizzy` 素材**未接线**——移植成本低。
+    4. **完成/出错反馈**（0.1.0-alpha.10 [#12](https://github.com/QCYTSN/dsh-dafeiyu/issues/12) + 0.1.3 原创 chime 与 notification-sound 设置）：成功/错误 PULSE 时窗口晃动 + 提示音；本地 PULSE 仅换气泡文案（shake 仅是 clip motion）。
+    5. **helper 重启有界**（0.1.0-alpha.14 + 0.1.5 [#40](https://github.com/QCYTSN/dsh-dafeiyu/pull/40)）：`maxStartFailures` 上限，坏 helper 不再无限重启；本地 `#scheduleRestart` 无界（仅 CLOSED/stopping 抑制）。
+    6. **项目名重命名新鲜度**（0.1.2）：live cwd/step projectName 优先于 session header；本地 `projectNameOf` 仍 header 优先 → 项目改名后气泡可能显示旧名。
+    7. **宿主总线/客户端故障隔离**（0.1.0-alpha.15）：session 监听与 settings 卡片注册各自包 guard，坏事件/槽位契约变化只影响桌宠自身；本地监听裸跑、client `apply` 直接注入槽未包 guard。
+    8. **pluginVersion 读 package.json**（0.1.0-alpha.13）：本地 HELLO 仍硬编码 `'0.1.0'`（`src/index.js`），版本提升后会漂移（微修）。
+  - **B 组：可选（按平台/需求取舍）**
+    1. 气泡显示模式 Always/Hidden/Custom（0.1.0-alpha.11，快照同日发布的边界项）：本地气泡常显；mac 场景价值待定。
+    2. 右键菜单扩展（0.1.0-alpha.10 #12 + 0.1.3）：打开 WebUI、角色/气泡/reduced-motion 直接改并写回 settings、55–140% + 60% mini 预设；本地菜单仅「摸摸头 / 戳一戳 / 退出大肥鱼」。
+    3. 多任务状态卡（0.1.0-alpha.10 #12）：多 DSH 会话时列出全部运行任务；本地 reducer 已有优先级选 top-1 基础，扩展成列表为中等成本。
+    4. macOS 原生 Swift/AppKit universal helper（0.1.4 [#37](https://github.com/QCYTSN/dsh-dafeiyu/pull/37) + 0.1.7 [#58](https://github.com/QCYTSN/dsh-dafeiyu/pull/58) 可重复 Swift 测试）：本地 Python/PySide6 路线继续；Swift 动画/布局状态机测试思想可参考。x86_64 打包仍为本地已知限制。
+  - **C 组：已覆盖或不适用（无需动作）**
+    - ✅ EPIPE 吞错与宿主进程保护（alpha.15）——`helper-process` stdin/send 已处理（另见既有 EPIPE 修复提交）
+    - ✅ `settings.plugin.item` keyed slot（alpha.12 契约）——client.js 已带 `key`
+    - ✅ approval 审批等待（alpha.13）——reducer `approval/asked|decided` → WAITING
+    - ✅ tool/result call-id 清除与用户提问等待（alpha.8）——`toolCallIdOf` 多路径 + token 级 `isUserQuestionTool`
+    - ✅ thinking 流式 chunk 不闪文案（alpha.8）——签名去重
+    - ✅ 拖拽稳定/抓取原子切换/走动终止（alpha.9）——本地已实现
+    - ✅ includeSubagents 默认关闭、顶层任务优先（alpha.7 起）——同款设置
+    - ✅ 心跳/快照重放/随宿主退出/reduced-motion（alpha.6 基线）——同款
+    - ➖ Win32 手套光标（0.1.9 [#33](https://github.com/QCYTSN/dsh-dafeiyu/pull/33)）——Windows-only
+    - ➖ WSL 相关（alpha.10/#8/[#51](https://github.com/QCYTSN/dsh-dafeiyu/pull/51)）——Linux/WSL 场景
+    - ➖ macOS Gatekeeper 实测文档（0.1.7 [#63](https://github.com/QCYTSN/dsh-dafeiyu/pull/63)/#24）——分发文档类，本地 helper 自建可参考
+    - ➖ CI/仓库清理（[#57](https://github.com/QCYTSN/dsh-dafeiyu/pull/57)/[#59](https://github.com/QCYTSN/dsh-dafeiyu/pull/59)/#54/#56）——工程内部
+- **决策**：
+  1. A 组 8 项列入 dsh-dafeiyu-mac 下个版本开发项，建议顺序 1/3/5/7（健壮性、低风险）→ 2/6（需先实测宿主事件字段）→ 4/8。
+  2. B 组按用户取舍后另行立项；C 组不动作。
+  3. 素材同步纪律：本地素材已超主线（PR #23 帧 + photoWall，署名已入 ASSET_LICENSE.md），此后**不再照单同步主线素材**，只按差距清单选择性采纳能力；`leave` 素材主线未补，不再等待，退场动画如需则自建或自 fork 分支取。
+  4. 勘误 D-013 的 PR #23 状态（见该节补记）。
+- **⏳ 待开发项目（D-020 采纳，下个版本回填式清单；实施顺序见决策 1，完成逐条回填到对应 DECISIONS 条目，先例 D-013）**：
+  - [ ] **A1** 启动健壮性双护栏——激活/`settings.watch`/事件监听异常包裹（#62/#65；import 期需先评估 schemastery 惰性加载）
+  - [ ] **A2** reasoning effort 状态显示——气泡显示实际生效推理档位（#43/#53；先实测宿主事件字段）
+  - [ ] **A3** 拖拽反应序列——release/dizzy/protest + reduced-motion 降级 + 可打断（#45→#52/#55；素材已在 manifest 未接线）
+  - [ ] **A4** 完成/出错反馈——PULSE 窗口晃动 + 提示音/通知设置（alpha.10 #12 + 0.1.3）
+  - [ ] **A5** helper 重启有界——maxStartFailures 上限（alpha.14 / 0.1.5 #40）
+  - [ ] **A6** 项目名重命名新鲜度——live cwd/projectName 优先于 header（0.1.2）
+  - [ ] **A7** 宿主总线/客户端故障隔离——session 监听与 client 槽注册各自包 guard（alpha.15）
+  - [ ] **A8** pluginVersion 读 package.json——去掉硬编码 `'0.1.0'`（alpha.13）
+  - B 组（可选，未立项，待取舍）：B1 气泡显示模式 / B2 右键菜单扩展（打开 WebUI + 设置写回 + mini 预设）/ B3 多任务状态卡 / B4 Swift/AppKit 原生 helper 参考
+- **遗留/风险**：清单核实基准为上游 main（09-05 v0.1.9）与本地源码现状；宿主 0.1.2-rc.1 事件字段是否携带 effort/最新 cwd 需在实施 A-2/A-6 前实测；上游无 API watch 手段（D-013 已验证订阅 API 404），后续按版本/PR URL 人工周期性复核。
