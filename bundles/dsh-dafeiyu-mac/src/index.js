@@ -149,7 +149,22 @@ function balanceMessage(snapshot) {
   })
 }
 
+/**
+ * 激活护栏（D-020 A1）：mountUnsafe 内任何激活期抛错（settings / webServer /
+ * helper 启动）只记录日志、桌宠本次会话禁用，绝不向宿主上抛——
+ * 宿主对插件激活抛错是整树否决，DSH 更新导致的宿主 API 变化不能拖垮启动
+ * （对照上游 dsh-dafeiyu 0.1.8 #65；0.1.7 #62 的加载期护栏思路见 D-020）。
+ */
 function mount(ctx, config = {}, eventCtx = ctx) {
+  const logger = ctx.logger ?? console
+  try {
+    mountUnsafe(ctx, config, eventCtx)
+  } catch (error) {
+    logger.error?.(`dsh-dafeiyu-mac failed to activate: ${error instanceof Error ? error.message : String(error)}; pet disabled for this session`)
+  }
+}
+
+function mountUnsafe(ctx, config = {}, eventCtx = ctx) {
   const logger = ctx.logger ?? console
   const base = publicConfig(config)
   const settings = ctx.settings?.register?.('dsh-dafeiyu-mac', Config, {
@@ -240,8 +255,6 @@ function mount(ctx, config = {}, eventCtx = ctx) {
     logger.info?.('dsh-dafeiyu-mac companion bridge started')
   }
 
-  startRuntime(settings.get())
-
   // 观察所有 DSH 会话；使用非作用域根总线并在插件生命周期内显式注销。
   const offEvent = eventCtx.on('session/event', (session, event) => {
     if (!bridge || !reducer) return
@@ -252,24 +265,30 @@ function mount(ctx, config = {}, eventCtx = ctx) {
     for (const message of reducer.disposeSession(session)) bridge.send(message)
   }, { global: true })
 
+  // 设置回调运行在宿主的 settings 派发内：抛错会连坐 settings 服务，
+  // 因此整体包裹并只记录（D-020 A1，对照上游 0.1.8 #65）。
   const unwatch = settings.watch((next) => {
-    if (next.enabled === false) {
+    try {
+      if (next.enabled === false) {
+        if (restartTimer) {
+          clearTimeout(restartTimer)
+          restartTimer = undefined
+        }
+        stopRuntime('settings-change')
+        return
+      }
+      if (!bridge) {
+        scheduleRestart(next)
+        return
+      }
       if (restartTimer) {
         clearTimeout(restartTimer)
         restartTimer = undefined
       }
-      stopRuntime('settings-change')
-      return
+      applyLiveSettings(next)
+    } catch (error) {
+      logger.warn?.(`dsh-dafeiyu-mac settings.watch failed: ${error instanceof Error ? error.message : String(error)}`)
     }
-    if (!bridge) {
-      scheduleRestart(next)
-      return
-    }
-    if (restartTimer) {
-      clearTimeout(restartTimer)
-      restartTimer = undefined
-    }
-    applyLiveSettings(next)
   })
   if (typeof ctx.inject === 'function') {
     ctx.inject(['webServer'], (httpCtx) => {
@@ -287,6 +306,15 @@ function mount(ctx, config = {}, eventCtx = ctx) {
     unwatch()
     stopRuntime('dsh-host-stop')
   })
+
+  // 启动运行时放最后：其前的注册若抛错（被 mount 护栏捕获）时，
+  // 清理 effect 已注册、且尚无已启动的 helper，不会留下进程残留。
+  try {
+    startRuntime(settings.get())
+  } catch (error) {
+    stopRuntime('activation-failed')
+    throw error
+  }
 }
 
 export function apply(ctx, config = {}) {
