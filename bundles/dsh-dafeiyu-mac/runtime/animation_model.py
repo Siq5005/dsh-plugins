@@ -50,6 +50,8 @@ class AnimationModel:
         self.frame_elapsed_ms = 0
         self.sequence: list[str] = []
         self.seq_index = 0
+        # D-020 A3：连续拖拽计数（本段内已完成释放的次数），回落基础状态时清零。
+        self._drag_streak = 0
 
     def apply_state(self, state: str, activity: str | None = None) -> None:
         if state not in STATES:
@@ -59,6 +61,7 @@ class AnimationModel:
         self.base_clip_name = self._clip_for(state, activity)
         self.overlay_clip_name = None
         self.sequence = []
+        self._drag_streak = 0
         self._activate(self.base_clip_name)
 
     def play_overlay(self, clip_name: str) -> None:
@@ -92,6 +95,7 @@ class AnimationModel:
             elif self.overlay_clip_name is not None:
                 # 单次 overlay 播完回落到当前基础状态。
                 self.clear_overlay()
+                self._drag_streak = 0
             elif self.sequence:
                 if self.seq_index + 1 < len(self.sequence):
                     self.seq_index += 1
@@ -100,9 +104,50 @@ class AnimationModel:
                     # 序列播完：回落基础状态。
                     self.sequence = []
                     self._activate(self.base_clip_name)
+                    self._drag_streak = 0
             else:
                 self.frame_elapsed_ms = 0
                 break
+
+    # ---- 拖拽反应（D-020 A3，对照上游 0.1.6 #45→#52/#55）----------------
+    def drag_grab(self) -> None:
+        """拖拽抓取：播放抓取姿势，并打断进行中的反应/序列。
+
+        素材缺失时保持当前基础状态不动画（仅计数与打断逻辑生效）。
+        """
+        self.overlay_clip_name = None
+        self.sequence = []
+        if "dragging_hold" in self.clips:
+            self.play_overlay("dragging_hold")
+        else:
+            self._activate(self.base_clip_name)
+
+    def drag_release(self, reduced_motion: bool = False) -> str | None:
+        """松手：本段已完成过一次拖拽时触发闹腾反应（error_dizzy，
+        缺素材则用 dragging_cry），否则普通松手（dragging_release）。
+        reduced_motion 时跳过反应、只做普通松手。返回实际播放的 clip 名。
+        """
+        if not reduced_motion and self._drag_streak >= 1:
+            reaction = self._first_existing(("error_dizzy", "dragging_cry"))
+            if reaction is not None:
+                self._drag_streak = 0
+                self.play_overlay(reaction)
+                return reaction
+        self._drag_streak += 1
+        release = "dragging_release" if "dragging_release" in self.clips else None
+        if release is not None:
+            self.play_overlay(release)
+        return release
+
+    def _first_existing(self, names: tuple[str, ...]) -> str | None:
+        for name in names:
+            if name in self.clips:
+                return name
+        return None
+
+    @property
+    def drag_streak(self) -> int:
+        return self._drag_streak
 
     def _clip_for(self, state: str, activity: str | None) -> str:
         if state == "WORKING" and activity:

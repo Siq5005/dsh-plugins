@@ -654,9 +654,8 @@ class PetWindow(QWidget):
             # 拖拽开始：终止进行中的走动，避免两个 move 互相覆盖。
             self._walk = None
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            # 拖拽细节：抓取姿势（如有素材）。
-            if "dragging_hold" in self.model.clips:
-                self.model.play_overlay("dragging_hold")
+            # 拖拽细节：抓取姿势（打断进行中的反应，D-020 A3）。
+            self.model.drag_grab()
 
     def mouseMoveEvent(self, event) -> None:  # noqa: N802
         if self.config["locked"] or self._drag_offset is None:
@@ -667,9 +666,10 @@ class PetWindow(QWidget):
         dragging = self._drag_offset is not None
         self._drag_offset = None
         self._persist_position()
-        if dragging and "dragging_release" in self.model.clips:
-            # 松手：播放放下动画（单次，播完回落）。
-            self.model.play_overlay("dragging_release")
+        if dragging:
+            # 松手：连续拖拽触发闹腾反应，否则放下动画（D-020 A3；
+            # reduced_motion 由模型侧跳过反应）。
+            self.model.drag_release(reduced_motion=self.config["reduced_motion"])
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802
         # 双击戳一戳。
