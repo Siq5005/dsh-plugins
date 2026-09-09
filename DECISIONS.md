@@ -354,14 +354,15 @@
   3. 素材同步纪律：本地素材已超主线（PR #23 帧 + photoWall，署名已入 ASSET_LICENSE.md），此后**不再照单同步主线素材**，只按差距清单选择性采纳能力；`leave` 素材主线未补，不再等待，退场动画如需则自建或自 fork 分支取。
   4. 勘误 D-013 的 PR #23 状态（见该节补记）。
 - **⏳ 待开发项目（D-020 采纳，下个版本回填式清单；实施顺序见决策 1，完成逐条回填到对应 DECISIONS 条目，先例 D-013）**：
-  - [ ] **A1** 启动健壮性双护栏——激活/`settings.watch`/事件监听异常包裹（#62/#65；import 期需先评估 schemastery 惰性加载）
+  - [x] **A1** 启动健壮性双护栏——激活/`settings.watch` 异常包裹（#62/#65）——✅ 2026-09-08，`src/index.js` 激活护栏 + watch 回调包裹，`test/activation-guard.test.js` 3 项；import 期 schemastery 惰性加载未做（工作量独立，仍列为将来项）
   - [ ] **A2** reasoning effort 状态显示——气泡显示实际生效推理档位（#43/#53；先实测宿主事件字段）
-  - [ ] **A3** 拖拽反应序列——release/dizzy/protest + reduced-motion 降级 + 可打断（#45→#52/#55；素材已在 manifest 未接线）
+  - [x] **A3** 拖拽反应序列——release/dizzy + reduced-motion 降级 + 可打断（#45→#52/#55）——✅ 2026-09-08，`animation_model.py` `drag_grab/drag_release`（纯逻辑）+ `helper.py` 鼠标事件接线，`runtime/test_drag_reaction.py` 6 项
   - [ ] **A4** 完成/出错反馈——PULSE 窗口晃动 + 提示音/通知设置（alpha.10 #12 + 0.1.3）
-  - [ ] **A5** helper 重启有界——maxStartFailures 上限（alpha.14 / 0.1.5 #40）
+  - [x] **A5** helper 重启有界——maxStartFailures 上限（alpha.14 / 0.1.5 #40）——✅ 2026-09-08，`helper-process.js` 连续失败计数（READY 清零、READY 前退出/spawn error 计次），`test/bounded-restart.test.js` 2 项
   - [ ] **A6** 项目名重命名新鲜度——live cwd/projectName 优先于 header（0.1.2）
   - [ ] **A7** 宿主总线/客户端故障隔离——session 监听与 client 槽注册各自包 guard（alpha.15）
   - [ ] **A8** pluginVersion 读 package.json——去掉硬编码 `'0.1.0'`（alpha.13）
+  - **落地回填（2026-09-08，健壮性批次）**：A1/A3/A5 已实现并提交 main——`a190c75`（A1）、`5fcb828`（A5）、`6c82abf`（A3）；验证：JS 全套 27/27（含新增 5 项）、Python 单测 6/6、`helper.py --headless` 启动干净退出。⚠️ A3 改动在 Python 侧，桌面生效需 `bash scripts/build-helper.sh` 重建 helper 单文件（另行处理）；A1 的 import 期惰性加载与 A7 事件监听隔离尚未做（A7 与 A1 部分重叠，见清单）。
   - B 组（可选，未立项，待取舍）：B1 气泡显示模式 / B2 右键菜单扩展（打开 WebUI + 设置写回 + mini 预设）/ B3 多任务状态卡 / B4 Swift/AppKit 原生 helper 参考
 - **遗留/风险**：清单核实基准为上游 main（09-05 v0.1.9）与本地源码现状；宿主 0.1.2-rc.1 事件字段是否携带 effort/最新 cwd 需在实施 A-2/A-6 前实测；上游无 API watch 手段（D-013 已验证订阅 API 404），后续按版本/PR URL 人工周期性复核。
 
