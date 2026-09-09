@@ -58,6 +58,9 @@ export class HelperProcess {
     this.heartbeatTimer = undefined
     this.startupTimer = undefined
     this.lastPongAt = 0
+    // D-020 A5：连续 READY 前失败达到上限后停止重启（对照上游 0.1.0-alpha.14 / 0.1.5 #40）。
+    this.maxStartFailures = Math.max(1, options.maxStartFailures ?? 5)
+    this.startFailures = 0
   }
 
   start() {
@@ -89,6 +92,14 @@ export class HelperProcess {
     })
     child.once('error', (error) => {
       this.logger.error?.(`dsh-dafeiyu-mac helper failed to start: ${error.message}`)
+      if (this.child !== child) return
+      this.child = undefined
+      this.spawned = false
+      this.#clearStartupTimer()
+      if (!this.stopping && !this.restartSuppressed) {
+        this.#registerFailedStart()
+        if (!this.restartSuppressed) this.#scheduleRestart()
+      }
     })
     // 子进程退出竞态中向已关闭管道写可能触发异步 EPIPE error——
     // 静默吞掉，避免冒泡成 Uncaught Exception。
@@ -104,14 +115,17 @@ export class HelperProcess {
     })
     child.once('exit', (code, signal) => {
       if (this.child !== child) return
+      const hadReady = this.spawned
       this.child = undefined
       this.spawned = false
       this.#clearHeartbeat()
       this.#clearStartupTimer()
-      if (!this.stopping && !this.restartSuppressed) {
-        this.logger.warn?.(`dsh-dafeiyu-mac helper exited (code=${String(code)}, signal=${String(signal)}); restarting`)
-        this.#scheduleRestart()
-      }
+      if (this.stopping || this.restartSuppressed) return
+      // READY 前退出记一次失败；达到上限后放弃本会话重启（D-020 A5）。
+      if (!hadReady) this.#registerFailedStart()
+      if (this.restartSuppressed) return
+      this.logger.warn?.(`dsh-dafeiyu-mac helper exited (code=${String(code)}, signal=${String(signal)}); restarting`)
+      this.#scheduleRestart()
     })
     createInterface({ input: child.stdout }).on('line', (line) => this.#handleReply(line))
     createInterface({ input: child.stderr }).on('line', (line) => {
@@ -209,6 +223,7 @@ export class HelperProcess {
         this.hasEverSpawned = true
         this.spawned = true
         this.lastPongAt = Date.now()
+        this.startFailures = 0 // READY 成功：清空连续失败预算（D-020 A5）
         this.#clearStartupTimer()
         if (firstSpawn) this.#flushQueue()
         else {
@@ -258,6 +273,14 @@ export class HelperProcess {
   #clearStartupTimer() {
     if (this.startupTimer) clearTimeout(this.startupTimer)
     this.startupTimer = undefined
+  }
+
+  #registerFailedStart() {
+    this.startFailures += 1
+    if (this.startFailures >= this.maxStartFailures) {
+      this.restartSuppressed = true
+      this.logger.warn?.(`dsh-dafeiyu-mac helper failed to start ${this.startFailures} times; giving up for this session`)
+    }
   }
 
   #scheduleRestart() {
