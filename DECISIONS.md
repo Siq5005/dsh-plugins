@@ -384,3 +384,22 @@
   - 运行时实测链路：附件完整 id 解析成功 → 会话日志读取修复生效（GUI 重启后）；官方端点 `POST https://api.deepseek.com/chat/completions`（model `deepseek-v4-flash-vision-exp` + 该截图 WebP）返回 HTTP 200 并正确描述画面。
   - 配置端点实测：`enabled=true autoCaption=false model=deepseek-v4-flash-vision-exp baseURL=https://api.deepseek.com`。
 - **遗留/风险**：profile 补丁层（权威配置）在 GUI 启动时加载，用户需**重启 DSH Desktop** 使工具运行时读到官方端点与 autoCaption=false；0.1.2-rc.1 起官方 vision 模型可原生收图，`deepseek-v4-flash-vision-exp` 为最干净路径，dsh-vision-adapter 的 analyze_image 作为文本主模型按需"眼睛"保留；host peer 仍为 `^0.1.0-rc.6`（语义满足 0.1.2-rc.1），如需收紧可随下一版统一升级。
+
+## D-022 官方模型更名/降价响应：插件定价表更新 + 本机 DSH 配置切 deepseek-flash
+
+- **日期**：2026-09-10
+- **状态**：已采纳（插件定价 `ebc76ee`、陈旧测试修复 `ccab178` 已提交；本机配置已改，`cordis.patch.yml` 待重启生效）
+- **背景**：DeepSeek 官方「模型 & 价格」页（https://api-docs.deepseek.com/zh-cn/quick_start/pricing）相较 D-005 的定价快照发生三处变化，且本机配置仍指向旧名：
+  1. **模型更名 + 降价**：官方主推模型名改为 `deepseek-flash`（版本 DeepSeek-V4.1-Flash）；旧名 `deepseek-v4-flash` / `deepseek-v4-flash-vision-exp` 已下线但仍可调用，请求由 V4.1-Flash 服务并按 Flash 价计费。Flash 价格下调：缓存命中 `¥0.10/0.05 → ¥0.04/0.02`、缓存未命中 `¥3/1.5 → ¥2/1`、输出 `¥9/4.5 → ¥8/4`（高峰/空闲）。Pro 价格不变。
+  2. **Pro 退役计划**：官方公告北京时间 2026-09-14 12:00 后，`deepseek-v4-pro` 的请求全部路由到 V4.1 Flash 并按 Flash 价计费。
+  3. **高峰时段限工作日**：官方明确高峰为**周一至周五** 9:00–12:00、14:00–18:00，周末全天空闲；插件原实现把每天 9–12/14–18 都算高峰。
+  - 本机 key 实测 `GET https://api.deepseek.com/models` 仅返回 `['deepseek-flash', 'deepseek-v4-pro']`，确认旧名已从官方模型列表移除（harness `dsh-llm-deepseek` 未列出的 id 仍会作为纯文本路由原样透传，因此改名不会导致请求失败）。
+- **决策**：
+  1. **插件定价表**（`bundles/dsh-deepseek-cost/src/pricing.js`）：Flash 三桶价换新；`DEFAULT_PRICES` 新增 `deepseek-flash` 主名、保留 `deepseek-v4-flash` 作同价别名（官方明确旧名按 Flash 计费）、`deepseek-v4-pro` 维持 Pro 价；`rateTierAt()` 增加 `getUTCDay()` 周一至周五判定，周末归空闲。设置页官方定价表格在模型名后附模型 id，避免两个同名 Flash 行无法区分。
+  2. **顺带修复既有陈旧测试**：`test/cost-projection.test.js` / `test/plugin-smoke.test.js` 仍调用 D-018 之前的裸顶层 `projection.view`，与现行 `wire.view` 契约不符，套件本就有 9 例失败；迁移到 `wire.view` 后恢复全绿。
+  3. **本机配置改名**（`~/.dsh/`，两文件均留 `.bak-20260910-model-rename`）：`settings.yaml` 的 `agent-default-model.model`、`dsh-vision-adapter.model`、`subagent-model-selection.allowedModels` 由旧名切到 `deepseek-flash`（vision-exp 条目移除，视觉与主模型统一）；`llm-deepseek` 由 `{}` 改为显式模型目录，声明 `deepseek-flash`（`inputModalities: [text, image]`，镜像官方 `imagePixelBudget` 640000 / `imageMaxBytes` 1048576）与 `deepseek-v4-pro`，替换 harness 内置的旧名公布列表；web profile `cordis.patch.yml` 的视觉模型同步改名并更新注释。
+- **验证**：
+  - 插件测试 `node --test`：**40/40 通过**（新增「周末全天空闲」用例）；两个提交分别验证过绿 —— `ccab178` 在 stash 掉定价改动后单独跑为 39/39，`ebc76ee` 后 40/40。
+  - 模型可用性实测（`POST /chat/completions`，model `deepseek-flash`）：纯文本 HTTP 200 且回显 `model=deepseek-flash`；带图 HTTP 200、`prompt_tokens=236`（纯文本仅 35，证明图片确被接收计费），模型正确描述出「Q版蓝发女仆装角色，带有鱼尾和圈圈眼，呈呆滞坐姿」，与所用桌宠素材一致 —— 确认改名后视觉链路仍可用。
+  - 配置校验：两文件 `yaml.safe_load` 通过且关键字段逐一回读确认；`~/.dsh` 除说明性注释外无旧名残留。
+- **遗留/风险**：`cordis.patch.yml` 为启动时加载的权威层，需**重启 DSH Desktop** 才生效（同 D-021）；`llm-deepseek` 目录按官方说明每请求解析、无需重启。插件对 `deepseek-v4-pro` 保留 Pro 价、**未做 09-14 之后的时间触发切价**（定位是定价快照而非动态账单），届时 Pro 请求实际按 Flash 计费、显示会偏高。`deepseek-v4-flash-vision-exp` 仍可作为纯文本路由透传，但已不在官方模型列表中。
