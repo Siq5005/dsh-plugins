@@ -9,6 +9,7 @@
  * 架构与事件契约参考 QCYTSN/dsh-dafeiyu (MIT)，本实现为 macOS 复刻简化版。
  */
 
+import { readFileSync } from 'node:fs'
 import Schema from '@deepseek-ai/schemastery'
 import { CompanionReducer } from './companion-reducer.js'
 import { HelperProcess } from './helper-process.js'
@@ -20,6 +21,24 @@ import {
 
 export const name = 'dsh-dafeiyu-mac'
 export const inject = ['sessions']
+
+/**
+ * 插件版本：读 package.json（D-020 A8，对照上游 0.1.0-alpha.13）。
+ * 惰性 + 兜底：不给 import 期新增失败面，元数据读不到时退化为 '0.0.0'，
+ * 不让桌宠因为版本信息起不来。
+ */
+let cachedPluginVersion
+export function pluginVersion() {
+  if (cachedPluginVersion === undefined) {
+    try {
+      const raw = readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+      cachedPluginVersion = String(JSON.parse(raw)?.version ?? '0.0.0')
+    } catch {
+      cachedPluginVersion = '0.0.0'
+    }
+  }
+  return cachedPluginVersion
+}
 export const CONFIG_ENDPOINT = '/plugins/dsh-dafeiyu-mac/config'
 export const BALANCE_SERVICE = 'dshDeepseekBalance'
 export const Config = Schema.object({
@@ -241,7 +260,7 @@ function mountUnsafe(ctx, config = {}, eventCtx = ctx) {
     bridge.send(createMessage(CompanionMessageKind.HELLO, {
       state: CompanionState.IDLE,
       host: 'deepseek-harness',
-      pluginVersion: '0.1.0',
+      pluginVersion: pluginVersion(),
       message: 'BigFish connected to DSH',
     }))
     bridge.send(createMessage(CompanionMessageKind.STATE, {

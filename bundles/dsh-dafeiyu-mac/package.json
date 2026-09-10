@@ -1,6 +1,6 @@
 {
   "name": "dsh-dafeiyu-mac",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "macOS 桌面大肥鱼：由 DeepSeek Harness 会话状态驱动的桌宠伴侣（学习复刻自 dsh-dafeiyu）",
   "author": "Siq5005",
   "type": "module",
