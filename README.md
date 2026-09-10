@@ -32,7 +32,7 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 | 右侧工作台 | 无 | [dsh-workbench](#dsh-workbench)：文件浏览 / 编辑 / 预览 + 内嵌浏览器 + Git 面板 |
 | 桌面宠物 | 无 | [dsh-dafeiyu-mac](#dsh-dafeiyu-mac)：由 DSH 会话状态驱动的 macOS 桌宠 |
 | 费用统计 | 无 | [dsh-deepseek-cost](#dsh-deepseek-cost)：按 DeepSeek 官方定价统计 token 用量与费用 |
-| 视觉理解 | 无 | [dsh-vision-adapter](#dsh-vision-adapter)：给纯文本主模型按需调用多模态端点 |
+| 视觉理解 | 官方原生（V4.1-Flash 起） | ~~[dsh-vision-adapter](#dsh-vision-adapter)~~：**已废弃 2026-09-10**，官方模型已能原生收图 |
 | 桌面端 | 官方 / 社区方案 | [dsh-desktop](#dsh-desktop--dsh-desktop-context-menu)：Electron 桌面壳 + 原生右键菜单 |
 | Agent 预设 | 官方预设 | 梁神模式：面向 V4 Pro 的两阶段锚定预设（外部） |
 | SSH 运维 | 无 | dsh-ssh：主机管理 / Web 终端 / SFTP / 隧道 / 集群（外部） |
@@ -90,7 +90,11 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-deepseek-
 
 详见 [dsh-deepseek-cost README](bundles/dsh-deepseek-cost/README.md)。
 
-### dsh-vision-adapter
+### dsh-vision-adapter（已废弃）
+
+> **已废弃（2026-09-10）**：官方 `deepseek-flash`（DeepSeek-V4.1-Flash）已原生支持图像理解。只要在主模型目录里声明 `inputModalities: [text, image]`（`settings.yaml` 的 `llm-deepseek.models`），harness 就会把图片作为真实 image content block 直接发给主模型，无需本插件的「图片→文本」改写，`analyze_image` 工具与 `deepseek-vision` 包装组也随之多余。**新环境请直接用原生路径**；本条目与代码保留归档，既有安装命令仍然有效。
+>
+> 反向提醒：若主模型**不在**目录里（例如被钉在已下线的旧模型名上的会话），harness 会把它判定为 text-only，图片被**静默**替换成 `[image omitted because this model accepts text only; ...]` 占位符——这正是本插件过去兜底的场景。遇上就在模型菜单里切到 `V4.1-Flash`。
 
 给 DeepSeek 纯文本主模型加“眼睛”：图片在 adapter 层改写为文本，`analyze_image` 工具按需调用你配置的 OpenAI 兼容多模态端点，文字答案回到主模型继续推理。支持内容哈希缓存、失败语义明确的降级。
 

@@ -1,4 +1,11 @@
-# dsh-vision-adapter
+# dsh-vision-adapter（已废弃）
+
+> **已废弃（2026-09-10）**。官方 `deepseek-flash`（DeepSeek-V4.1-Flash）已原生支持图像理解：harness 只要在主模型目录里声明 `inputModalities: [text, image]`，就会把图片作为真实 image content block 直接发给主模型。本插件的「图片→文本」改写、`analyze_image` 工具与 `deepseek-vision` 包装组因此都不再需要。
+>
+> - **迁移**：删掉 profile 补丁层（`~/.dsh/profiles/<profile>/cordis.patch.yml`）里的 `dsh-vision-adapter` 条目，并在 `~/.dsh/settings.yaml` 的 `llm-deepseek.models` 中为主模型声明 `inputModalities: [text, image]`，重启 DSH Desktop 即可。实测的原生链路日志形态：`agent/inbox/spliced` 中出现 `{"type": "image", "attachment": {...}}`，`request/header` 的 `config.model` 为主模型，全程无 `image omitted` 替换。
+> - **本机状态**：已按上法停用（settings 层与补丁层均 `enabled: false`，备份 `*.bak-20260910-vision-disable`）。
+> - **仍然适用的场景**：主模型确实只能收文本的路由。注意本插件**只处理 `deepseek-official`**，其他 provider 本来就不受它保护。
+> - **代码保留归档**，测试仍可运行，既有安装命令仍然有效。
 
 给 DeepSeek 主模型加"眼睛"：图片在 **adapter 层**改写为文本，`analyze_image` 工具按需调用你配置的 OpenAI 兼容多模态端点，文字答案回到主模型继续推理。
 
@@ -90,7 +97,7 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-vision-ad
 
 ```sh
 cd bundles/dsh-vision-adapter
-node --test --test-timeout=15000 test/*.test.js   # 43 个
+node --test --test-timeout=15000 test/*.test.js   # 58 个（2026-09-10 实测 58/58 通过；归档后不再随上游核心演进验证）
 ```
 
 ## License

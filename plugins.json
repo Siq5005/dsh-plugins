@@ -30,12 +30,13 @@
     },
     {
       "name": "dsh-vision-adapter",
-      "description": "给 DeepSeek 主模型加\"眼睛\"：stealth 式接管 deepseek-official 路由，adapter 层把图片改写为文本，analyze_image 工具按需调用 OpenAI 兼容多模态端点（内容哈希缓存，可选自动描述）",
+      "description": "【已废弃 2026-09-10】给 DeepSeek 主模型加\"眼睛\"：stealth 式接管 deepseek-official 路由，adapter 层把图片改写为文本，analyze_image 工具按需调用 OpenAI 兼容多模态端点（内容哈希缓存，可选自动描述）",
       "type": "bundle",
       "path": "bundles/dsh-vision-adapter",
       "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-vision-adapter\"",
       "tags": ["vision", "multimodal", "image", "deepseek", "image-analysis"],
-      "added": "2026-08-17"
+      "added": "2026-08-17",
+      "deprecated": "2026-09-10 废弃：官方 deepseek-flash（DeepSeek-V4.1-Flash）已原生支持图像理解，harness 只需在主模型目录里声明 inputModalities: [text, image] 即直接把图片发给主模型，无需 adapter 层「图片→文本」改写；analyze_image 工具与 deepseek-vision 包装组随之多余。注意：模型不在目录中的会话会被判定为 text-only、图片被静默替换为占位符，此时本插件曾是兜底手段。代码保留归档，既有安装命令仍然有效。"
     },
     {
       "name": "dsh-workbench",

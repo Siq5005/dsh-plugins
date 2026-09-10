@@ -49,6 +49,10 @@
           "repo": {
             "type": "string",
             "description": "可选：独立仓库 URL（方案 C 拆分后填写）"
+          },
+          "deprecated": {
+            "type": "string",
+            "description": "可选：废弃说明（含日期与原因）。存在即表示该条目不再推荐使用；条目本身保留，以保证既有安装命令仍然有效"
           }
         }
       }

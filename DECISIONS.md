@@ -403,3 +403,24 @@
   - 模型可用性实测（`POST /chat/completions`，model `deepseek-flash`）：纯文本 HTTP 200 且回显 `model=deepseek-flash`；带图 HTTP 200、`prompt_tokens=236`（纯文本仅 35，证明图片确被接收计费），模型正确描述出「Q版蓝发女仆装角色，带有鱼尾和圈圈眼，呈呆滞坐姿」，与所用桌宠素材一致 —— 确认改名后视觉链路仍可用。
   - 配置校验：两文件 `yaml.safe_load` 通过且关键字段逐一回读确认；`~/.dsh` 除说明性注释外无旧名残留。
 - **遗留/风险**：`cordis.patch.yml` 为启动时加载的权威层，需**重启 DSH Desktop** 才生效（同 D-021）；`llm-deepseek` 目录按官方说明每请求解析、无需重启。插件对 `deepseek-v4-pro` 保留 Pro 价、**未做 09-14 之后的时间触发切价**（定位是定价快照而非动态账单），届时 Pro 请求实际按 Flash 计费、显示会偏高。`deepseek-v4-flash-vision-exp` 仍可作为纯文本路由透传，但已不在官方模型列表中。
+
+## D-023 dsh-vision-adapter 废弃：官方主模型原生收图后，图片改写层不再需要
+
+- **日期**：2026-09-10
+- **状态**：已采纳（本机已停用并实测通过；仓库标记废弃、代码保留归档）
+- **背景**：D-022 把主模型切到 `deepseek-flash` 并声明 `inputModalities: [text, image]` 后，本插件存在的唯一理由消失，且其「眼睛」模型已与「大脑」同为 `deepseek-flash`，构成「让 deepseek-flash 把图描述成文字、再喂给 deepseek-flash」的绕行：
+  1. **闸门按模型的 `inputModalities` 判定**：harness 通用层 `dsh-llm/lib/index.js:1684` 对「声明不含 image 且有图」的请求调用 `projectImagesForTextModel()` 降级；DeepSeek 适配器 `dsh-llm-deepseek/lib/index.js:1605` 同条件抛 `UNSUPPORTED_CONTENT`；目录默认值 `:1490` 为 `inputModalities: model.inputModalities ?? ["text"]`。harness 内置 `DEFAULT_MODELS` 里 `deepseek-v4-flash` 没有 `inputModalities` → 改前图片根本到不了主模型，这正是插件当年的立足点。
+  2. **本机实际处于 Mode B**：profile 补丁层没有 `llm-deepseek` 的 `disabled` 条目，官方行在场，插件从未真正接管 `deepseek-official`；它实际只额外提供 `analyze_image` 工具与 `deepseek-vision` 包装组（后者在现行配置中除 8-24 一份历史 monitor 日志外无任何引用）。
+  3. 插件 README 自述「仅处理 `deepseek-official` 路由」，其他文本 provider 本来就不受其保护，故废弃不产生跨 provider 回归。
+- **决策**：
+  1. **本机停用（可逆，两步）**：`~/.dsh/profiles/web/cordis.patch.yml` 的 `dsh-vision-adapter.config.enabled` 与 `~/.dsh/settings.yaml` 的 `dsh-vision-adapter.enabled` 均由 `true` 改 `false`；前者才是真正的开关（插件 `src/index.js:175` 在 `apply()` 起始处直接 `return`），后者仅为保持一致、避免 D-021 那种层间冲突。两文件均留 `.bak-20260910-vision-disable` 备份，回滚即改回 `true` 并重启。
+  2. **仓库标记废弃（保留代码归档）**：`plugins.json` 该条目新增 `deprecated` 字段并在 `description` 前缀「【已废弃 2026-09-10】」；`plugins.schema.json` 增补可选 `deprecated` 属性（JSON Schema 未禁止额外字段，此举把用法固化下来）；根 `README.md` 的能力对照表与插件小节、插件自身 `README.md` 顶部均加废弃说明与迁移步骤。**既有安装命令保持有效**，未删除 bundle。
+- **验证**：
+  - **原生图像链路端到端实测**（用户贴图，会话 `session-04a7f46a` 日志）：`agent/inbox/spliced` 中出现真实 `{"type": "image", "attachment": {...}}`，`request/header` 的 `config` 为 `{provider: "deepseek-official", model: "deepseek-flash", reasoningEffort: "high"}`，全程无 `image omitted` 替换 → 图片确实以 image content block 直达主模型。
+  - **停用生效**：`GET /plugins/dsh-vision-adapter/config` 返回 404（`apply()` 提前返回后端点未注册）；同期 `GET /plugins/dsh-deepseek-cost/config` 返回 200 且 `defaults.deepseek-flash` 为新价，互证 settings.yaml 被实时读取、新代码已加载。
+  - **配置链解析**：用 harness 自身的 `Config` + `resolveAdapterOptions` 解析 settings 段，输出恰为 `[deepseek-flash(text+image), deepseek-v4-pro]`，排除「schema 非法 → 静默回退默认值」这条路径（`dsh-llm-deepseek:2004` 的 `keeping the last good configuration` 未触发）。
+  - **旧模型名 API 实测**：`deepseek-v4-flash` 与 `deepseek-v4-flash-vision-exp` 带图请求均 HTTP 200、响应 `model=deepseek-flash` 且能正确描述画面，确认旧名是重定向到 V4.1-Flash 而非失效。
+- **遗留/风险**：
+  1. **目录收窄的静默陷阱（本次踩到）**：`modelInfoFor` 对**不在目录里**的模型强制 `inputModalities: ["text"]`（`dsh-llm-deepseek:1561`），图片随后被 `textOnlyImageText` 替换为 `[image omitted because this model accepts text only; attachment sha256:…]`——**不报错**。叠加停用插件后 `analyze_image` 兜底消失，任何被钉在目录外模型名（`deepseek-v4-flash`、`deepseek-v4-flash-vision-exp`）的旧会话都会变成图片盲；当时的当前会话即受影响。**处置**：在模型菜单把会话切到 `V4.1-Flash`（本机已按此恢复并验证）。未采用「把旧名加回目录并声明可收图」的兼容方案，以免已弃用名字重新出现在模型菜单。
+  2. 本次只**标记**废弃，未删除 `bundles/dsh-vision-adapter`；若日后确定删除，对已按文档安装者是破坏性变更，需单独决策。
+  3. 归档代码不再随上游核心演进而验证（peer 依赖仍为 `^0.1.0-rc.6`）；若未来出现真正只能收文本的路由需求而需复活它，须先按 0.1.2-rc.1 的 `prepareCall` / `imageRequestPricing` 契约复核（D-021 的同款漂移）。
