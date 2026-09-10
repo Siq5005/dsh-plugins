@@ -56,13 +56,18 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-dafeiyu-m
 
 ## 验证状态
 
-- Node 测试 18/18 通过：协议（4，含 BALANCE）、余额联动格式化（3）、状态机 reducer（7）、
-  helper 生命周期（2）、插件冒烟测试（1，模拟 DSH ctx 完整链路）、headless 集成（1，见下）
+- Node 测试 34/34 通过（9 个文件）：协议（含 BALANCE）、余额联动格式化、状态机 reducer、
+  helper 生命周期、EPIPE 竞态、插件冒烟（模拟 DSH ctx 完整链路）、激活护栏（激活/settings.watch 抛错不拖垮 boot）、
+  helper 重启有界（maxStartFailures）、pluginVersion 读 package.json、宿主总线监听隔离、客户端设置卡片守卫
+- Python 测试 9/9（`python3 -m unittest discover -s runtime -p 'test_*.py'`）：纯动画模型 6 项 +
+  真实 `PetWindow` 离屏接线 3 项（拖拽反应 / reduced-motion / 锁定窗口；未装 PySide6 时自动跳过）
 - headless 协议链路：JS ↔ Python JSONL 握手 / ping-pong / shutdown 干净退出
 - 可视化冒烟：PySide6 窗口依次展示 IDLE/THINKING/WORKING/WAITING/SUCCESS/ERROR 后干净退出
 
 ```sh
-node --test test/*.test.js        # JS 侧全部测试
+node --test test/*.test.js             # JS 侧全部测试
+python3 -m unittest discover -s runtime -p 'test_*.py'   # Python 侧（Qt 用例自动跳过）
+~/.dsh-dafeiyu-venv/bin/python -m unittest discover -s runtime -p 'test_*.py'   # 含 Qt 接线用例
 python3 runtime/helper.py --headless   # 协议模式（无需 Qt）
 python3 runtime/helper.py              # 可视化模式（需 PySide6）
 ```
