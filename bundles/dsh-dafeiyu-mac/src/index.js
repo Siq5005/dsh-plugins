@@ -275,13 +275,23 @@ function mountUnsafe(ctx, config = {}, eventCtx = ctx) {
   }
 
   // 观察所有 DSH 会话；使用非作用域根总线并在插件生命周期内显式注销。
+  // 故障隔离（D-020 A7a，对照上游 0.1.0-alpha.15）：单个坏事件不得从监听器抛出，
+  // 否则会打断同一总线上的其它订阅者（历史上表现为"装了桌宠后别的插件也不工作"）。
   const offEvent = eventCtx.on('session/event', (session, event) => {
-    if (!bridge || !reducer) return
-    for (const message of reducer.handle(session, event)) bridge.send(message)
+    try {
+      if (!bridge || !reducer) return
+      for (const message of reducer.handle(session, event)) bridge.send(message)
+    } catch (error) {
+      logger.warn?.(`dsh-dafeiyu-mac session/event listener isolated an error: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }, { global: true })
   const offDisposed = eventCtx.on('session/disposed', (session) => {
-    if (!bridge || !reducer) return
-    for (const message of reducer.disposeSession(session)) bridge.send(message)
+    try {
+      if (!bridge || !reducer) return
+      for (const message of reducer.disposeSession(session)) bridge.send(message)
+    } catch (error) {
+      logger.warn?.(`dsh-dafeiyu-mac session/disposed listener isolated an error: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }, { global: true })
 
   // 设置回调运行在宿主的 settings 派发内：抛错会连坐 settings 服务，
