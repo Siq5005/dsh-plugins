@@ -2,10 +2,11 @@
 
 > **已废弃（2026-09-10）**。官方 `deepseek-flash`（DeepSeek-V4.1-Flash）已原生支持图像理解：harness 只要在主模型目录里声明 `inputModalities: [text, image]`，就会把图片作为真实 image content block 直接发给主模型。本插件的「图片→文本」改写、`analyze_image` 工具与 `deepseek-vision` 包装组因此都不再需要。
 >
-> - **迁移**：删掉 profile 补丁层（`~/.dsh/profiles/<profile>/cordis.patch.yml`）里的 `dsh-vision-adapter` 条目，并在 `~/.dsh/settings.yaml` 的 `llm-deepseek.models` 中为主模型声明 `inputModalities: [text, image]`，重启 DSH Desktop 即可。实测的原生链路日志形态：`agent/inbox/spliced` 中出现 `{"type": "image", "attachment": {...}}`，`request/header` 的 `config.model` 为主模型，全程无 `image omitted` 替换。
-> - **本机状态**：已按上法停用（settings 层与补丁层均 `enabled: false`，备份 `*.bak-20260910-vision-disable`）。
+> - **迁移到原生路径**：① 在 `~/.dsh/settings.yaml` 的 `llm-deepseek.models` 中为主模型声明 `inputModalities: [text, image]`；② 从 profile 卸载本插件（见下条清单）；③ 重启 DSH Desktop。实测的原生链路日志形态：`agent/inbox/spliced` 中出现 `{"type": "image", "attachment": {...}}`，`request/header` 的 `config.model` 为主模型，全程无 `image omitted` 替换。
+> - **卸载清单（共五处，只摘其一会留下悬挂引用）**：`~/.dsh/profiles/<profile>/package.json` 的 `dependencies` 条目**与** `dsh.profile.bundles` 条目、`cordis.patch.yml` 的补丁条目、`pnpm-lock.yaml` 的 importer 条目、`~/.dsh/settings.yaml` 的 `dsh-vision-adapter` 段（内含端点 API key），以及 `node_modules/dsh-vision-adapter` 符号链接（重跑 `pnpm install` 亦可清除）。
+> - **本机状态（2026-09-10）**：已按上述清单从 web profile **卸载**（四个配置文件备份后缀 `*.bak-20260910-uninstall-vision`）。卸载前先以两层 `enabled: false` 做过一轮可逆验证（备份后缀 `*.bak-20260910-vision-disable`）。
 > - **仍然适用的场景**：主模型确实只能收文本的路由。注意本插件**只处理 `deepseek-official`**，其他 provider 本来就不受它保护。
-> - **代码保留归档**，测试仍可运行，既有安装命令仍然有效。
+> - **代码保留归档**，测试仍可运行（2026-09-10 实测 58/58），既有安装命令仍然有效。
 
 给 DeepSeek 主模型加"眼睛"：图片在 **adapter 层**改写为文本，`analyze_image` 工具按需调用你配置的 OpenAI 兼容多模态端点，文字答案回到主模型继续推理。
 
@@ -39,13 +40,13 @@
               文字答案回主模型（内容哈希缓存 + 写入图片描述记忆）
 ```
 
-## 安装
+## 安装（已废弃，仅供归档参考）
 
 ```sh
 dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-vision-adapter"
 ```
 
-## 启用（二选一）
+## 启用（已废弃，仅供归档参考）
 
 **A. 无感接管（推荐）**：在 profile 补丁层（`~/.dsh/profiles/<profile>/cordis.patch.yml`）禁用官方 llm-deepseek 行，插件自动接管 `deepseek-official` 路由——模型选择器外观不变，贴图即用：
 

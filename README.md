@@ -12,7 +12,7 @@
 
 <p align="center">
   <strong>DeepSeek Harness（DSH）插件集合 · 每个插件独立成包，按需安装</strong><br>
-  <em>工作台 · 桌宠 · 费用统计 · 视觉适配 · 桌面端 · 梁神模式 · 皮肤中心 · SSH 运维</em>
+  <em>工作台 · 桌宠 · 费用统计 · 桌面端 · 梁神模式 · 皮肤中心 · SSH 运维</em>
 </p>
 
 <div align="center">
@@ -99,6 +99,8 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-deepseek-
 给 DeepSeek 纯文本主模型加“眼睛”：图片在 adapter 层改写为文本，`analyze_image` 工具按需调用你配置的 OpenAI 兼容多模态端点，文字答案回到主模型继续推理。支持内容哈希缓存、失败语义明确的降级。
 
 ![视觉适配配置与使用](docs/screenshots/vision-adapter.png)
+
+*（下图为废弃前的配置界面，仅作存档参考。）*
 
 安装：
 
@@ -211,9 +213,11 @@ dsh-workbench 采用 VS Code 式右侧布局，占用 shell 的 details 布局�
 </details>
 
 <details>
-<summary><strong>视觉插件会消耗哪里的额度？</strong></summary>
+<summary><strong>视觉识别要额外装插件吗？图片会消耗哪里的额度？</strong></summary>
 
-`dsh-vision-adapter` 只把图片字节发给你在配置里填写的第三方 OpenAI 兼容多模态端点，消耗的是该第三方服务的 API 额度；请自行确认端点与隐私策略。
+不需要额外装插件。官方 `deepseek-flash`（V4.1-Flash）已原生支持图像理解，只要在主模型目录里声明 `inputModalities: [text, image]`，图片就随主模型的正常请求计费，不涉及任何第三方端点。
+
+已废弃的 `dsh-vision-adapter`（2026-09-10）另当别论：它会把图片字节发给你在配置里填写的第三方 OpenAI 兼容多模态端点，消耗的是该第三方服务的 API 额度。仍在使用它的环境请自行确认端点与隐私策略。
 
 </details>
 
@@ -229,7 +233,7 @@ dsh-workbench 采用 VS Code 式右侧布局，占用 shell 的 details 布局�
 - `dsh-workbench` 无文件 watcher，需手动刷新；Git 面板暂不支持 push / pull / fetch。
 - `dsh-dafeiyu-mac` 内置 helper 仅 darwin-arm64；onefile 首启解压约 5–8 秒。
 - `dsh-deepseek-cost` 只统计当前会话；官方模型定价为代码快照，官方调价需更新代码。
-- `dsh-vision-adapter` 的图片描述记忆与问答缓存为会话内内存缓存，重启清空。
+- `dsh-vision-adapter`（已废弃，归档）的图片描述记忆与问答缓存为会话内内存缓存，重启清空。
 - `dsh-desktop-context-menu` 仅在 DSH Desktop 的 Electron 主进程生效，普通 Web profile 自动 no-op。
 - 外部 npm 插件（梁神模式 / 皮肤中心 / SSH）的维护与已知问题以 [dsh-web-ui](https://github.com/zhu1090093659/dsh-web-ui) 项目为准。
 
