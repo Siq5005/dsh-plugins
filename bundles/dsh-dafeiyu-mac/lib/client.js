@@ -143,13 +143,34 @@ window.__ModuleLoader__.load({ id: 'dsh-dafeiyu-mac', factory: (require) => {
     )
   }
 
+  // 故障隔离（D-020 A7b，对照上游 0.1.0-alpha.15）：槽位契约再变时只丢大肥鱼卡片，
+  // 不让整个 WebUI 加载失败。
+  function reportCardError(scope, error) {
+    try {
+      console.warn(`[dsh-dafeiyu-mac] ${scope} failed: ${error instanceof Error ? error.message : String(error)}`)
+    } catch {
+      // 连 console 都不可用时保持静默，绝不因日志再抛错。
+    }
+  }
+
   function apply(ctx) {
-    ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-      // keyed 槽 settings.plugin.item 契约要求 key 字段（DSH rc.7+）；
-      // 同时保留 id 兼容旧版。
-      name: 'settings.plugin.item', key: 'dsh-dafeiyu-mac', id: 'dsh-dafeiyu-mac', order: 30,
-      inject: () => ({}),
-    }, BigFishCard))
+    try {
+      ctx.slots.inject('settings.plugin.item', () => {
+        try {
+          return ctx.slots.register({
+            // keyed 槽 settings.plugin.item 契约要求 key 字段（DSH rc.7+）；
+            // 同时保留 id 兼容旧版。
+            name: 'settings.plugin.item', key: 'dsh-dafeiyu-mac', id: 'dsh-dafeiyu-mac', order: 30,
+            inject: () => ({}),
+          }, BigFishCard)
+        } catch (error) {
+          reportCardError('settings card registration', error)
+          return undefined
+        }
+      })
+    } catch (error) {
+      reportCardError('settings card slot injection', error)
+    }
   }
 
   module.exports = {
