@@ -69,10 +69,10 @@ test('apply 注册投影 + 设置命名空间 + 配置端点', () => {
   assert.equal(definition.stateVersion, 2)
   assert.equal(typeof definition.init, 'function')
   assert.equal(typeof definition.apply, 'function')
-  assert.equal(typeof definition.view, 'function')
+  assert.equal(typeof definition.wire.view, 'function')
   assert.equal(createTokenCostProjection().key, definition.key)
   // init 状态可解析 view 并过 schema。
-  const value = definition.view(definition.init())
+  const value = definition.wire.view(definition.init())
   assert.deepEqual(value, { models: [], lastTier: 'offpeak' })
   // 端点
   assert.equal(routes.length, 1)

@@ -35,7 +35,7 @@ test('init 状态为纯 JSON，空日志 view 全零', () => {
   assert.deepEqual(state, { perModel: {}, last: null, lastTier: 'offpeak' })
   // 纯 JSON：可被 structuredClone / 持久化缓存。
   assert.deepEqual(JSON.parse(JSON.stringify(state)), state)
-  const value = projection.view(state)
+  const value = projection.wire.view(state)
   assert.deepEqual(value, { models: [], lastTier: 'offpeak' })
   tokenCostSchema.parse(value) // wire schema 校验通过
 })
@@ -59,7 +59,7 @@ test('单模型：高峰时段请求计入 peak 桶', () => {
     usage: { inputTokens: 100_000, cacheReadTokens: 400_000, outputTokens: 50_000 },
     time: beijingTime(10), // 高峰
   }))
-  const value = projection.view(state)
+  const value = projection.wire.view(state)
   assert.equal(value.lastTier, 'peak')
   assert.equal(value.models.length, 1)
   const row = value.models[0]
@@ -86,7 +86,7 @@ test('同一模型跨时段：peak 与 offpeak 各自累计', () => {
     usage: { inputTokens: 2000, outputTokens: 700 },
     time: beijingTime(0), // 空闲
   }))
-  const value = projection.view(state)
+  const value = projection.wire.view(state)
   const row = value.models[0]
   assert.deepEqual(row.peak, { uncachedInputTokens: 1000, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 500 })
   assert.deepEqual(row.offpeak, { uncachedInputTokens: 2000, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 700 })
@@ -107,7 +107,7 @@ test('多模型独立累计，view 按模型 id 排序', () => {
     usage: { inputTokens: 10_000, outputTokens: 5_000 },
     time: beijingTime(11),
   }))
-  const value = projection.view(state)
+  const value = projection.wire.view(state)
   assert.equal(value.models.length, 2)
   assert.deepEqual(value.models.map((m) => m.model), ['deepseek-v4-flash', 'deepseek-v4-pro'])
 })
@@ -125,7 +125,7 @@ test('同一 (turn, step) 重复上报：替换而非叠加（同时段）', () 
     usage: { inputTokens: 1200, outputTokens: 600 },
     time: beijingTime(10),
   }))
-  const value = projection.view(state)
+  const value = projection.wire.view(state)
   const row = value.models[0]
   assert.deepEqual(row.peak, { uncachedInputTokens: 1200, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 600 })
   assert.deepEqual(row.offpeak, emptyBucket)
@@ -144,7 +144,7 @@ test('同一 (turn, step) 跨时段替换：旧样本从原时段扣除，新样
     usage: { inputTokens: 2000, outputTokens: 800 },
     time: beijingTime(0), // 覆盖为空闲
   }))
-  const value = projection.view(state)
+  const value = projection.wire.view(state)
   const row = value.models[0]
   assert.deepEqual(row.peak, emptyBucket) // 高峰样本被替换掉
   assert.deepEqual(row.offpeak, { uncachedInputTokens: 2000, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 800 })
@@ -174,7 +174,7 @@ test('未知模型同样分桶累计（价格由设置层决定）', () => {
     usage: { inputTokens: 1_000_000, outputTokens: 1_000_000 },
     time: beijingTime(10),
   }))
-  const value = projection.view(state)
+  const value = projection.wire.view(state)
   assert.equal(value.models[0].model, 'future-model')
   assert.equal(value.models[0].peak.uncachedInputTokens, 1_000_000)
 })
@@ -189,7 +189,7 @@ test('多次请求累计（跨 turn/step）', () => {
       time: beijingTime(10),
     }))
   }
-  const value = projection.view(state)
+  const value = projection.wire.view(state)
   assert.equal(value.models[0].peak.uncachedInputTokens, 3000)
   assert.equal(value.models[0].peak.outputTokens, 3000)
 })
