@@ -395,7 +395,11 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
           ),
           React.createElement('tbody', null,
             officialRows.map(([id, entry]) => React.createElement('tr', { key: id },
-              React.createElement('td', { style: TABLE_CELL_STYLE }, entry.name ?? id),
+              React.createElement('td', { style: TABLE_CELL_STYLE },
+                entry.name ?? id,
+                entry.name && entry.name !== id
+                  ? React.createElement('span', { style: { ...SMALL_STYLE, marginLeft: 6 } }, `(${id})`)
+                  : null),
               React.createElement('td', { style: TABLE_CELL_STYLE },
                 `${entry.peak.cacheMiss} / ${entry.peak.cacheHit} / ${entry.peak.output}`),
               React.createElement('td', { style: TABLE_CELL_STYLE },
@@ -404,7 +408,7 @@ window.__ModuleLoader__.load({ id: 'dsh-deepseek-cost', factory: (require) => {
           ),
         ),
         React.createElement('span', { style: SMALL_STYLE },
-          '高峰时段为北京时间 9:00–12:00 与 14:00–18:00；空闲时段为高峰半价。'),
+          '高峰时段为北京时间周一至周五 9:00–12:00 与 14:00–18:00；周末及空闲时段为高峰半价。'),
       ),
       React.createElement('div', { style: CARD_STYLE },
         React.createElement('div', null,

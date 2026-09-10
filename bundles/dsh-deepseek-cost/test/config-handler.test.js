@@ -104,7 +104,9 @@ test('GET 返回当前配置（loopback 校验通过）', async () => {
   const payload = JSON.parse(res.body)
   assert.equal(payload.enabled, true)
   assert.deepEqual(payload.models, [])
+  assert.ok(payload.defaults['deepseek-flash'])
   assert.ok(payload.defaults['deepseek-v4-flash'])
+  assert.ok(payload.defaults['deepseek-v4-pro'])
 })
 
 test('PATCH 更新设置并回读新配置', async () => {
