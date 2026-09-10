@@ -407,13 +407,15 @@
 ## D-023 dsh-vision-adapter 废弃：官方主模型原生收图后，图片改写层不再需要
 
 - **日期**：2026-09-10
-- **状态**：已采纳（本机已停用并实测通过；仓库标记废弃、代码保留归档）
+- **状态**：已采纳（本机已从 profile 卸载并实测通过；仓库标记废弃、代码保留归档）
 - **背景**：D-022 把主模型切到 `deepseek-flash` 并声明 `inputModalities: [text, image]` 后，本插件存在的唯一理由消失，且其「眼睛」模型已与「大脑」同为 `deepseek-flash`，构成「让 deepseek-flash 把图描述成文字、再喂给 deepseek-flash」的绕行：
   1. **闸门按模型的 `inputModalities` 判定**：harness 通用层 `dsh-llm/lib/index.js:1684` 对「声明不含 image 且有图」的请求调用 `projectImagesForTextModel()` 降级；DeepSeek 适配器 `dsh-llm-deepseek/lib/index.js:1605` 同条件抛 `UNSUPPORTED_CONTENT`；目录默认值 `:1490` 为 `inputModalities: model.inputModalities ?? ["text"]`。harness 内置 `DEFAULT_MODELS` 里 `deepseek-v4-flash` 没有 `inputModalities` → 改前图片根本到不了主模型，这正是插件当年的立足点。
   2. **本机实际处于 Mode B**：profile 补丁层没有 `llm-deepseek` 的 `disabled` 条目，官方行在场，插件从未真正接管 `deepseek-official`；它实际只额外提供 `analyze_image` 工具与 `deepseek-vision` 包装组（后者在现行配置中除 8-24 一份历史 monitor 日志外无任何引用）。
   3. 插件 README 自述「仅处理 `deepseek-official` 路由」，其他文本 provider 本来就不受其保护，故废弃不产生跨 provider 回归。
 - **决策**：
-  1. **本机停用（可逆，两步）**：`~/.dsh/profiles/web/cordis.patch.yml` 的 `dsh-vision-adapter.config.enabled` 与 `~/.dsh/settings.yaml` 的 `dsh-vision-adapter.enabled` 均由 `true` 改 `false`；前者才是真正的开关（插件 `src/index.js:175` 在 `apply()` 起始处直接 `return`），后者仅为保持一致、避免 D-021 那种层间冲突。两文件均留 `.bak-20260910-vision-disable` 备份，回滚即改回 `true` 并重启。
+  1. **本机处置：先可逆停用、验证通过后卸载**（两步，均留备份）：
+     - **第一步（可逆验证）**：`~/.dsh/profiles/web/cordis.patch.yml` 的 `dsh-vision-adapter.config.enabled` 与 `~/.dsh/settings.yaml` 的 `dsh-vision-adapter.enabled` 均由 `true` 改 `false`。前者才是真正的开关（插件 `src/index.js:175` 在 `apply()` 起始处直接 `return`），后者仅为保持一致、避免 D-021 那种层间冲突。备份后缀 `.bak-20260910-vision-disable`。
+     - **第二步（验证通过后卸载）**：清除 profile 中的全部五处引用 —— `profiles/web/package.json` 的 `dependencies` 条目与 `dsh.profile.bundles` 条目（**只摘其一必留悬挂引用**）、`profiles/web/cordis.patch.yml` 的补丁条目（原地保留一行指向本条 D-023 的说明）、`profiles/web/pnpm-lock.yaml` 的 importer 条目（`link:` 依赖不入 `packages:`，故仅三行）、`settings.yaml` 的 `dsh-vision-adapter` 段（连带移除其中存放的端点 API key），并删除 `profiles/web/node_modules/dsh-vision-adapter` 符号链接。备份后缀 `.bak-20260910-uninstall-vision`。**回滚＝恢复这四个文件并重启 DSH Desktop。**
   2. **仓库标记废弃（保留代码归档）**：`plugins.json` 该条目新增 `deprecated` 字段并在 `description` 前缀「【已废弃 2026-09-10】」；`plugins.schema.json` 增补可选 `deprecated` 属性（JSON Schema 未禁止额外字段，此举把用法固化下来）；根 `README.md` 的能力对照表与插件小节、插件自身 `README.md` 顶部均加废弃说明与迁移步骤。**既有安装命令保持有效**，未删除 bundle。
 - **验证**：
   - **原生图像链路端到端实测**（用户贴图，会话 `session-04a7f46a` 日志）：`agent/inbox/spliced` 中出现真实 `{"type": "image", "attachment": {...}}`，`request/header` 的 `config` 为 `{provider: "deepseek-official", model: "deepseek-flash", reasoningEffort: "high"}`，全程无 `image omitted` 替换 → 图片确实以 image content block 直达主模型。
