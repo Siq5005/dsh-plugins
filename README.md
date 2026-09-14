@@ -42,17 +42,19 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 
 ## 功能插件
 
-### dsh-workbench
+### dsh-workbench（已废弃）
 
-> **已废弃 2026-09-14**（原因与替代品见 [D-026](DECISIONS.md)）：上游 0.1.5 把 `rightbar` 交给官方 `dsh-client-ui-sidebar-right` 独占，本插件注册即失败、面板无法显示，不能靠改名修复。**请改用 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（`@0.19.1`）**——文件编辑 / 预览 / 内嵌浏览器 / 真实终端 / Git 全覆盖，且已声明在 `0.1.5-rc.2` 上真机验证。本机已完成替换（`web` profile 卸载 workbench、装入 better-sidebar）。以下内容为归档说明，仅适用于 DSH ≤ 0.1.2-rc.1。
+> **已废弃（2026-09-14）**：上游 DSH **0.1.5** 把右侧列由 `details` 改名为 `rightbar`，并把 `rightbar` 交给官方 `dsh-client-ui-sidebar-right` **独占**——该槽是 `kind:'single'`，slot 注册表对二次注册直接抛 `single slot "rightbar" already has a registration`，本插件注册即失败、面板无法显示，**不能靠改名修复**（正解是改用 `sidebar.right.pane.tab` + `dockkit` 的 `TabHookContext`，等于重写 UI 集成）。原因与证据见 [D-026](DECISIONS.md)。
+>
+> **请改用外部插件 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)**——文件编辑 / 预览 / 内嵌浏览器 / 真实终端 / Git 全覆盖，`0.19.0` 起适配 DSH `0.1.5-rc.1+`，并已声明在 `0.1.5-rc.2` 上真机验证：
+>
+> ```sh
+> dsh plugin --profile <name> add dsh-better-sidebar@latest
+> ```
+>
+> 首次会因 pnpm 拦截 `node-pty` 构建脚本而失败（依赖已写入）；在 profile 的 `pnpm-workspace.yaml` 里把 `allowBuilds` 的 `node-pty` 设为 `true` 后重跑即可。
 
-DSH Web GUI 右侧工作台：**文件浏览 / 编辑 / 预览 + 内嵌浏览器 + Git 面板**，VS Code 式布局。入口在会话头部「工作台」按钮，右侧列占用 shell details 布局列，对话区自动收缩、不遮挡聊天。
-
-| 文件与编辑器 | Git 面板 |
-| --- | --- |
-| ![工作台文件与编辑器](docs/screenshots/workbench-files.png) | ![工作台 Git 面板](docs/screenshots/workbench-git.png) |
-
-安装：
+归档说明（仅适用于 **DSH ≤ 0.1.2-rc.1**，那条线上 `details` 无人占用、插件可正常工作）：VS Code 式右侧工作台，文件浏览 / 编辑 / 预览 + 内嵌浏览器 + Git 面板，入口在会话头部「工作台」按钮。代码保留归档，既有安装命令仍然有效：
 
 ```sh
 dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-workbench"
@@ -133,6 +135,7 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-desktop-c
 
 | 插件 | 说明 | 截图 |
 | --- | --- | --- |
+| [`dsh-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) | **右侧工作台（推荐）**：文件编辑 / 预览 / 内嵌浏览器 / 真实终端 / Git / 侧边对话；`0.19.0` 起适配 DSH `0.1.5-rc.1+` | [上游仓库](https://github.com/omdsh-dev/DSH-better-sidebar) |
 | `@linxin666/dsh-liangshen` | 梁神模式：两阶段锚定 agent 预设 | ![梁神模式](docs/screenshots/liangshen-mode.png) |
 | `@linxin666/dsh-skins` | 皮肤中心 + 多款内置皮肤 | ![皮肤中心](docs/screenshots/skin-center.png) |
 | `@linxin666/dsh-ssh` | SSH 运维：主机管理 / Web 终端 / SFTP / 隧道 / 集群 | ![SSH 面板](docs/screenshots/ssh-panel.png) |
@@ -142,12 +145,15 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-desktop-c
 安装：
 
 ```sh
+dsh plugin --profile <name> add dsh-better-sidebar@latest
 dsh plugin --profile <name> add @linxin666/dsh-liangshen
 dsh plugin --profile <name> add @linxin666/dsh-skins
 dsh plugin --profile <name> add @linxin666/dsh-ssh
 dsh plugin --profile <name> add github:xuanyuanzhifeng/dsh-plugin-agent-workflow#v0.1.1 --workspace-root
 npx dsh-replay <session-id> --out replay.html
 ```
+
+> `dsh-better-sidebar` 首次安装会被 pnpm 拦下 `node-pty` 构建脚本（依赖已写入）；在 profile 的 `pnpm-workspace.yaml` 把 `allowBuilds` 的 `node-pty` 设为 `true` 后重跑即成功。
 
 > `dsh-skins` 的皮肤中心通常还需安装 `@linxin666/dsh-client-ui-web-ui-settings`。
 
@@ -167,10 +173,10 @@ npx dsh-replay <session-id> --out replay.html
 dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/<plugin-name>"
 ```
 
-例如安装工作台：
+例如安装费用统计：
 
 ```sh
-dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-workbench"
+dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-deepseek-cost"
 ```
 
 ### 从本仓库安装
@@ -232,7 +238,7 @@ dsh-workbench 采用 VS Code 式右侧布局，占用 shell 的 details 布局�
 
 ## 已知限制
 
-- `dsh-workbench` 无文件 watcher，需手动刷新；Git 面板暂不支持 push / pull / fetch。
+- `dsh-workbench`（已废弃、归档；仅 DSH ≤ 0.1.2-rc.1）无文件 watcher，需手动刷新；Git 面板暂不支持 push / pull / fetch。
 - `dsh-dafeiyu-mac` 内置 helper 仅 darwin-arm64；onefile 首启解压约 5–8 秒。
 - `dsh-deepseek-cost` 只统计当前会话；官方模型定价为代码快照，官方调价需更新代码。
 - `dsh-vision-adapter`（已废弃，归档）的图片描述记忆与问答缓存为会话内内存缓存，重启清空。

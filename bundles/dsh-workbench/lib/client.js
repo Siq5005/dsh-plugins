@@ -1,10 +1,10 @@
-// dsh-workbench WebUI client 半区：右侧列（0.1.2-rc.1 的 details / 0.1.5+ 的 rightbar）工作台。
+// dsh-workbench WebUI client 半区：右侧 details 列工作台。（已废弃 2026-09-14，见 README/D-026：
+// 上游 0.1.5 起 details 列改名为 rightbar 并被官方 sidebar-right 独占，本插件在 0.1.5+ 不可用；
+// 归档代码保持面向 DSH ≤ 0.1.2-rc.1 的原始形态，不做兼容层。）
 // 手写 module-loader 包（参照仓库内 dsh-dafeiyu-mac / dsh-deepseek-cost 的
 // lib/client.js 写法）：React 来自 require('react')，数据经 /dsh-workbench/*
 // HTTP 路由 fetch（host 侧 src/index.js），CSS 注入 <style>。
-// 布局：右侧 shell 列——0.1.2-rc.1 名为 details（layout.openDetails/closeDetails），
-// 0.1.5 起上游改名为 rightbar（layout.openRightbar/closeRightbar，槽名 'rightbar'）；
-// 这里运行时探测，同一份 bundle 兼容两条线。
+// 布局：右侧 shell details 列（layout.openDetails/closeDetails 控制），
 // 顶部 tab 栏（文件/浏览器/Git）+ 底部面板；入口为会话头部「工作台」按钮。
 window.__ModuleLoader__.load({ id: 'dsh-workbench', factory: (require) => {
   const module = { exports: {} }
@@ -24,28 +24,6 @@ window.__ModuleLoader__.load({ id: 'dsh-workbench', factory: (require) => {
 
   let layoutSvc
   let timerSvc
-
-  // 上游 0.1.5 把右侧 details 列改名为 rightbar：列/槽名 'details' → 'rightbar'，
-  // 服务方法 openDetails/closeDetails → openRightbar/closeRightbar（旧名整体移除，
-  // 不是别名）。按布局服务暴露的方法探测，使同一份 client bundle 同时兼容
-  // 0.1.2-rc.1 与 0.1.5+。
-  function rightbarSlotName() {
-    return layoutSvc && typeof layoutSvc.openRightbar === 'function' ? 'rightbar' : 'details'
-  }
-
-  function openRightbar() {
-    const l = layoutSvc
-    if (!l) return
-    if (typeof l.openRightbar === 'function') l.openRightbar()
-    else if (typeof l.openDetails === 'function') l.openDetails()
-  }
-
-  function closeRightbar() {
-    const l = layoutSvc
-    if (!l) return
-    if (typeof l.closeRightbar === 'function') l.closeRightbar()
-    else if (typeof l.closeDetails === 'function') l.closeDetails()
-  }
 
   async function call(method, args) {
     let res
@@ -166,7 +144,7 @@ window.__ModuleLoader__.load({ id: 'dsh-workbench', factory: (require) => {
 `)
 
   function HeaderButton() {
-    return el('button', { className: 'wb-ficon', title: '打开工作台', onClick: openRightbar }, '工作台')
+    return el('button', { className: 'wb-ficon', title: '打开工作台', onClick: () => { const l = layoutSvc; if (l) l.openDetails() } }, '工作台')
   }
 
   function WorkbenchPanel(props) {
@@ -188,7 +166,7 @@ window.__ModuleLoader__.load({ id: 'dsh-workbench', factory: (require) => {
           }, v.label)),
         ),
         el('span', { className: 'wb2-sub', title: cwd || '' }, cwd || '无工作目录'),
-        el('button', { className: 'wb-btn', onClick: closeRightbar }, '关闭'),
+        el('button', { className: 'wb-btn', onClick: () => { const l = layoutSvc; if (l) l.closeDetails() } }, '关闭'),
       ),
       el('div', { className: 'wb2-body' },
         el('div', { className: 'wb2-main' },
@@ -588,9 +566,8 @@ window.__ModuleLoader__.load({ id: 'dsh-workbench', factory: (require) => {
     })
     if (inj1) disposers.push(inj1)
 
-    const panelSlot = rightbarSlotName()
-    const inj2 = slots.inject(panelSlot, () => {
-      const d = slots.register({ name: panelSlot, priority: -100 }, (props) => el(WorkbenchPanel, props))
+    const inj2 = slots.inject('details', () => {
+      const d = slots.register({ name: 'details', priority: -100 }, (props) => el(WorkbenchPanel, props))
       if (d) disposers.push(d)
     })
     if (inj2) disposers.push(inj2)

@@ -511,5 +511,27 @@
   3. 本机 `web` profile 现有 9 个 bundle；`node-pty` 已放行构建，后续 profile 内 `pnpm install` 不会再被拦。
   4. 若未来要复活 workbench，须按 `sidebar.right.pane.tab` + `dockkit` 契约重写（工作量等同新插件），不建议。
 
+## D-027 轻量化收尾：workbench 归档回退 + 截图瘦身 + README 收敛
+
+- **日期**：2026-09-14
+- **状态**：已采纳（仓库与 README 已收敛；本机运行态不受影响——workbench 本就已从 profile 卸载）
+- **背景**：D-026 决定"标记废弃、保留代码"，但归档里留了三处**看起来还能用**的误导，以及一批只为废弃功能服务的死资产：
+  1. D-024 的 `rightbar` 兼容层代码（已被 D-026 证伪：在 0.1.5 上仍抛异常），以及只用于锁定该兼容层的 4 例测试；
+  2. 根 README 里 workbench 的两张截图（`workbench-files.png` / `workbench-git.png`），展示的是一个已不可用的功能；
+  3. README 的安装示例仍以 workbench 为例，`### dsh-workbench` 小节仍带完整能力介绍。
+- **决策**（目标：轻量 + 易用，即"归档要诚实、推荐要一条命令可达"）：
+  1. **回退兼容层代码**：`bundles/dsh-workbench/lib/client.js` 回到纯 `details` 形态（删除 `rightbarSlotName`/`openRightbar`/`closeRightbar` 与运行时探测），只保留一句指向本条的废弃注释；`git rm -r bundles/dsh-workbench/test/`（该测试只锁定已作废的兼容层）。归档代码 = **面向 DSH ≤ 0.1.2-rc.1 的最后可用状态**，不再给人"以为能兼容 0.1.5"的错觉。
+  2. **截图瘦身**：删除上述两张过时截图（约 176KB）。根 README 对**推荐替代品**不内嵌截图，而是**链接到其上游仓库**（上游自带截图与演示视频）——既不复制第三方资产，也不发布含本机会话内容的画面。
+  3. **README 收敛**：能力对照表指向替代品；`### dsh-workbench（已废弃）` 改为引用块式归档条目（为什么坏 → 一条命令的替代安装 → `node-pty` 放行提示 → 归档安装命令）；「外部插件」表与安装命令块补入 `dsh-better-sidebar`；「安装单个插件」的示例由 workbench 换成 `dsh-deepseek-cost`；「已知限制」标注该条仅适用于 ≤0.1.2-rc.1。
+  4. **插件自身 README** 同步：顶部 WARNING（D-026 已加）保留，布局条目回到 `details` 口径，并更正原先"0.1.5 后本插件成为该列正规使用者"的错误说法（实际是**无法注册**）。
+- **验证**：
+  - **图片引用完整性**：抽出 README 内全部 `docs/screenshots/*` 引用逐个 `test -f`，**无一失效**。
+  - **代码回退**：`openRightbar|rightbarSlotName` 残留 **0**；`openDetails|closeDetails` 3 处调用、`details` 槽注册 1 处，与 D-024 之前一致（`git diff` 仅剩注释差异）。
+  - 归档代码在 0.1.5 上的行为不变（仍不可用）——与废弃结论自洽；在 ≤0.1.2-rc.1 上仍可用。
+- **遗留/风险**：
+  1. 归档代码**已无测试**（原 4 例随兼容层一同删除）；若日后复活，须按 `sidebar.right.pane.tab` 重写并补测（同 D-026）。
+  2. 截图删除只影响 README 展示，不影响任何功能；日后要补真实截图时，**勿使用含本机会话内容的画面**（隐私），优先用示例工程或链接上游资产。
+
+
 
 
