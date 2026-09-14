@@ -449,3 +449,33 @@
   2. **smoke-web-profile 覆盖不到这条路径**：它验证的是模块图链接（缺导出会在 boot 期炸），而 `slots.inject` 是**客户端运行时**调用——0.1.5 上槽名若不对，表现为浏览器里面板不出现，**不会**让 boot 失败。故本测试是该改动唯一的自动化保护，**升级后仍必须在 GUI 里点一次「工作台」实测**。
   3. 本插件未随上游 `main` 的后续迭代验证（`dsh-v0.1.5-rc.2` → master 已再前进 139 个 commit，含 composer 菜单重构）；若上游继续调整右侧列 API，需按本条同法重新比对 npm 包。
 
+## D-025 版本基准升级：0.1.2-rc.1 → 0.1.5-rc.2（dsh-desktop 仓库）
+
+- **日期**：2026-09-14
+- **状态**：已采纳（dsh-desktop 仓库已升级、验证并推送 `9d61bd3`；**本机生效需退出 GUI 后跑 `scripts/upgrade-app.sh` 替换 app bundle**，见遗留 1）
+- **背景**：
+  1. **上游落点**：`dsh-v0.1.5-rc.2` 是当前 `next` 线最新（2026-09-10），自 D-014 的基准 `0.1.2-rc.1` 以来跨 `0.1.3-alpha.1/2`、`0.1.5-alpha.1/2`、`0.1.5-rc.1/rc.2` 共 7 个发布（0.1.4 跳号）。
+  2. **npm tag 陷阱**：`@deepseek-ai/dsh` 的 `latest=0.1.5-rc.1`、`next=0.1.5-rc.2`；而 `dsh-web-app`/`dsh-base`/`dsh-sandbox` 的 **`latest` 仍是 8-10 发布的旧包 `0.0.1-rc.1` 占位**——必须显式指定版本，任何依赖 `latest` 的写法都会装到远古版本。
+  3. **语义化版本陷阱（实测）**：`^0.1.2-rc.1` 在 npm 预发布规则下**永不匹配** `0.1.5-rc.2`（`semver.satisfies('0.1.5-rc.2','^0.1.2-rc.1') === false`，因跨版本元组不允许带预发布标签），故 `pnpm install` 重装也不会自动前进，必须显式改 range。
+  4. **本项目直接相关的破坏性变更**：会话格式升到 **V3 且不可降级读取**；移除 `ctx.agent`；`Inbox` 改为类型接口（`hasPending`/`claim` 移出公共 API）；Web 插件面板 API 调整（移除原 Detail 面板、`conversation` 槽迁为 `main` 的 key）——后者即 D-024 处理的 details→rightbar。
+- **决策**：
+  1. **181 个**随 dsh 发布线走的依赖 `^0.1.2-rc.1` → `^0.1.5-rc.2`（`dsh-desktop/package.json`）。**6 个独立版本线的包保持不动**：`dsh-client-schema-form`/`dsh-client-web-react`（`^0.1.0-rc.7`）、`dsh-client-runtime`/`dsh-host-apiproxy`（`^0.1.1-rc.2`）、`dsh-tool-subagent-report`（`^0.1.2-alpha.3`）、`node-addon-landlock-run`（`^0.1.1`）；已逐个核对它们当前已是各自版本线的最新发布，`0.1.5-rc.2` 对它们本就不存在。
+  2. **sandbox patch 跟随改名**：`patches/@deepseek-ai__dsh-sandbox@0.1.2-rc.1.patch` → `@0.1.5-rc.2.patch`，`pnpm-workspace.yaml` 的 `patchedDependencies` 键同步。**补丁内容零改动**——实测两版 `dsh-sandbox/lib/index.js` 字节完全相同（sha256 `8994b3e4…`、git blob `9fb79a71…`），且 `0.1.5-rc.2` 仍未含该修复（`grep -c 'mode === effectiveMode'` = 0）。本仓库 `patches/` 的归档副本保留原文件名以固定 D-016 的历史记录，README 表格已更新指向。
+  3. **顺手修 `pnpm-workspace.yaml` 的 `allowBuilds` 占位符**：`electron-winstaller: "set this to true or false"` → `false`。该占位符让**每次 `pnpm install` 都以 `ERR_PNPM_IGNORED_BUILDS` 非零退出**（非本次升级引入的既有问题）。
+  4. **同步 README 的固定版本描述**：`dsh-desktop/README.md` 两处 `0.1.0-rc.6` → `0.1.5-rc.2`（自 0.1.2-rc.1 升级起就已过期）。
+  5. **生效路径不变**：本机核心＝app bundle（`~/.dsh/profiles/node_modules/@deepseek-ai/*` 全是指向 `/Applications/DSH Desktop.app/Contents/Resources/app/node_modules/` 的符号链接，CLI 与桌面共用），故升级核心＝跑 `dsh-desktop/scripts/upgrade-app.sh`。
+- **验证**（均在新核心下实跑）：
+  - `pnpm install`：`Packages: +295 -173`；装后 `dsh` / `dsh-app-boot` / `dsh-sandbox` / `dsh-web-app` 均解析为 `0.1.5-rc.2`；`pnpm install --offline --frozen-lockfile` **exit 0**（allowBuilds 修复后不再报 ignored builds）。
+  - **patch 重放确认**：`node_modules/@deepseek-ai/dsh-sandbox/lib/index.js:97` 出现 `if (mode === effectiveMode) return effectiveMode;`。
+  - **新包随闭包装入**：`dsh-package-manifest`、`dsh-client-ui-sidebar-right` / `-files` / `-documentpreview`、`dsh-host-open-in-app`、`dsh-client-resources` 等 0.1.5 新增能力均在位。
+  - `scripts/smoke-boot.mjs`（隔离 desktop profile）：**OK** —— token 握手 303 + `set-cookie`，`GET /` 200 / 27660 bytes。
+  - `scripts/smoke-web-profile.mjs`（真实 web profile，9 个 bundle 含 `@linxin666/*` 与 `dsh-watcher`）：**OK** —— `GET /` 200 / 30295 bytes，`plugin client bundles linked cleanly`。
+  - **升级前备份会话**：`~/dsh-upgrade/backup-sessions-20260914-103122`（134M / 8 项，rsync 全量）。
+- **遗留/风险**：
+  1. **本机尚未生效**：app bundle 仍是 `0.1.2-rc.1`，仓库领先于运行态；必须退出 GUI 后跑 `bash scripts/upgrade-app.sh`（脚本会拒绝在 app 运行时执行）。
+  2. **会话 V3 不可降级**：首次以 `0.1.5-rc.2` 启动会把历史会话迁移为新格式，**回滚 app 不等于回滚会话**——真的需要回滚时须同时恢复 `~/.dsh/sessions`（备份已就位）。
+  3. **门槛覆盖不到客户端运行时**（同 D-024 遗留 2）：升级后必须在 GUI 实测三处槽位——工作台面板（`rightbar`/`details`）、费用行（`conversation.composer.dock`）、桌宠设置卡（`settings.plugin.item`）。
+  4. `smoke-web-profile` 只证明**模块图链接**成功；第三方插件（`@linxin666/*`、`dsh-watcher`）的运行时行为未逐个验证，出现异常时按「先摘插件再定位」处理。
+  5. 上游 master 已再前进 139 个 commit（含 composer 菜单重构、会话事件读取器弃用），下个基准大概率落到 `0.1.6`/`0.2.0`；届时按本条同一流程重跑（含 D-024 的槽位重新比对）。
+
+
