@@ -40,12 +40,13 @@
     },
     {
       "name": "dsh-workbench",
-      "description": "右侧工作台：文件浏览/编辑/预览 + 内嵌浏览器 + Git 面板，VS Code 式布局（占用 shell details 布局列，不遮挡对话区；借鉴 dsh-better-sidebar 与 dsh-aionui-panel 设计）",
+      "description": "【已废弃 2026-09-14】右侧工作台：文件浏览/编辑/预览 + 内嵌浏览器 + Git 面板，VS Code 式布局（占用 shell details 布局列，不遮挡对话区；借鉴 dsh-better-sidebar 与 dsh-aionui-panel 设计）",
       "type": "bundle",
       "path": "bundles/dsh-workbench",
       "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-workbench\"",
       "tags": ["workbench", "file-explorer", "git", "browser", "right-panel", "vscode-like"],
-      "added": "2026-08-17"
+      "added": "2026-08-17",
+      "deprecated": "2026-09-14 废弃：上游 0.1.5 把右侧列由 details 改名为 rightbar，并把 rightbar 交给官方 dsh-client-ui-sidebar-right 独占（rightbar 是 kind:'single' 槽，slots 对二次注册直接抛 \"already has a registration\"），本插件注册即失败、面板无法显示；按官方新契约改造需改用 sidebar.right.pane.tab + dockkit 的 TabHookContext，等于重写 UI 集成，故不再自维护。替代品：dsh-better-sidebar@0.19.1（3570 stars；0.19.0 起适配 DSH 0.1.5-rc.1+，README 声明已在 0.1.5-rc.2 真机挂载验证；文件编辑/预览/内嵌浏览器/真实终端/Git 全覆盖）。本机已卸载并从 web profile 移除，代码保留归档，既有安装命令仍然有效。"
     },
     {
       "name": "dsh-desktop",

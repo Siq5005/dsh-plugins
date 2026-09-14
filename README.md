@@ -29,7 +29,7 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 
 | 能力 | 原生 dsh web | 本仓库收录的插件 |
 | --- | --- | --- |
-| 右侧工作台 | 无 | [dsh-workbench](#dsh-workbench)：文件浏览 / 编辑 / 预览 + 内嵌浏览器 + Git 面板 |
+| 右侧工作台 | 官方右栏（文件浏览 + 预览，只读） | ~~[dsh-workbench](#dsh-workbench)~~：**已废弃 2026-09-14**（0.1.5 起 rightbar 被官方独占，注册即抛异常）→ 改用外部 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) |
 | 桌面宠物 | 无 | [dsh-dafeiyu-mac](#dsh-dafeiyu-mac)：由 DSH 会话状态驱动的 macOS 桌宠 |
 | 费用统计 | 无 | [dsh-deepseek-cost](#dsh-deepseek-cost)：按 DeepSeek 官方定价统计 token 用量与费用 |
 | 视觉理解 | 官方原生（V4.1-Flash 起） | ~~[dsh-vision-adapter](#dsh-vision-adapter)~~：**已废弃 2026-09-10**，官方模型已能原生收图 |
@@ -43,6 +43,8 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 ## 功能插件
 
 ### dsh-workbench
+
+> **已废弃 2026-09-14**（原因与替代品见 [D-026](DECISIONS.md)）：上游 0.1.5 把 `rightbar` 交给官方 `dsh-client-ui-sidebar-right` 独占，本插件注册即失败、面板无法显示，不能靠改名修复。**请改用 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（`@0.19.1`）**——文件编辑 / 预览 / 内嵌浏览器 / 真实终端 / Git 全覆盖，且已声明在 `0.1.5-rc.2` 上真机验证。本机已完成替换（`web` profile 卸载 workbench、装入 better-sidebar）。以下内容为归档说明，仅适用于 DSH ≤ 0.1.2-rc.1。
 
 DSH Web GUI 右侧工作台：**文件浏览 / 编辑 / 预览 + 内嵌浏览器 + Git 面板**，VS Code 式布局。入口在会话头部「工作台」按钮，右侧列占用 shell details 布局列，对话区自动收缩、不遮挡聊天。
 
@@ -199,9 +201,9 @@ dsh plugin --profile <name> remove <plugin-name>
 </details>
 
 <details>
-<summary><strong>工作台为什么替换了内置的「工具调用详情」面板？</strong></summary>
+<summary><strong>工作台为什么替换了内置的「工具调用详情」面板？</strong>（历史条目，dsh-workbench 已于 2026-09-14 废弃）</summary>
 
-dsh-workbench 采用 VS Code 式右侧布局，占用 shell 的 details 布局列。这是右侧工作台与内置工具调用详情面板的取舍；需要工具调用详情时可关闭工作台或切换布局。
+dsh-workbench 采用 VS Code 式右侧布局，占用 shell 的 details 布局列。这是右侧工作台与内置工具调用详情面板的取舍；需要工具调用详情时可关闭工作台或切换布局。**注**：上游 0.1.5 已移除内置 Detail 面板、把右侧列改为 `rightbar` 并由官方 `dsh-client-ui-sidebar-right` 独占，这个取舍随之消失，插件也因此在 0.1.5 上不再可用（见 D-026）。
 
 </details>
 

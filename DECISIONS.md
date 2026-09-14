@@ -449,6 +449,8 @@
   2. **smoke-web-profile 覆盖不到这条路径**：它验证的是模块图链接（缺导出会在 boot 期炸），而 `slots.inject` 是**客户端运行时**调用——0.1.5 上槽名若不对，表现为浏览器里面板不出现，**不会**让 boot 失败。故本测试是该改动唯一的自动化保护，**升级后仍必须在 GUI 里点一次「工作台」实测**。
   3. 本插件未随上游 `main` 的后续迭代验证（`dsh-v0.1.5-rc.2` → master 已再前进 139 个 commit，含 composer 菜单重构）；若上游继续调整右侧列 API，需按本条同法重新比对 npm 包。
 
+> **更正（2026-09-14，见 D-026）**：本条"同一份 bundle 兼容两条线"的结论**不成立，已作废**。`rightbar` 在 0.1.5 是 `kind:'single'` 且**已被官方 `dsh-client-ui-sidebar-right` 独占**，slot 注册表对二次注册直接抛 `single slot "rightbar" already has a registration`（`dsh-client-ui-slots/lib/index.js:81`），因此该改动在 0.1.5 上**仍会失败**——只是失败点从"槽不存在"变成"槽已被占用"，症状相同（面板不显示）。真正的迁移落点是 `sidebar.right.pane.tab` + `dockkit` 的 `TabHookContext`。该插件已废弃并替换为 `dsh-better-sidebar`，详见 D-026。
+
 ## D-025 版本基准升级：0.1.2-rc.1 → 0.1.5-rc.2（dsh-desktop 仓库）
 
 - **日期**：2026-09-14
@@ -477,5 +479,37 @@
   3. **门槛覆盖不到客户端运行时**（同 D-024 遗留 2）：升级后必须在 GUI 实测三处槽位——工作台面板（`rightbar`/`details`）、费用行（`conversation.composer.dock`）、桌宠设置卡（`settings.plugin.item`）。
   4. `smoke-web-profile` 只证明**模块图链接**成功；第三方插件（`@linxin666/*`、`dsh-watcher`）的运行时行为未逐个验证，出现异常时按「先摘插件再定位」处理。
   5. 上游 master 已再前进 139 个 commit（含 composer 菜单重构、会话事件读取器弃用），下个基准大概率落到 `0.1.6`/`0.2.0`；届时按本条同一流程重跑（含 D-024 的槽位重新比对）。
+
+## D-026 dsh-workbench 废弃 → 替换为 dsh-better-sidebar（0.1.5 的 rightbar 被官方独占）
+
+- **日期**：2026-09-14
+- **状态**：已采纳（本机 `web` profile 已完成替换并逐项验证；仓库标记废弃、代码保留归档）
+- **背景**：核心升级到 `0.1.5-rc.2` 后，**会话头部「工作台」按钮点击无面板弹出**。按系统化调试流程定位，根因不在环境而在**上游把这块 API 换了主**：
+  1. **失败点**：`dsh-client-ui-slots/lib/index.js:81` —— `if (occupant) throw new Error(\`single slot "${options.name}" already has a registration ...\`)`。
+  2. **契约变更（实测 SlotMap 键）**：0.1.2-rc.1 的 layout 声明 `sidebar / conversation / details / shell.overlay`；0.1.5-rc.2 改为 `sidebar / main / rightbar / shell.overlay`，且 `rightbar` 是 **`kind:'single'`、`scope:'root'`**（整列单占用者，owner `RightbarOwnerProps`）。
+  3. **占用者**：官方新包 `dsh-client-ui-sidebar-right` 注册进 `rightbar`，并声明内层座位 `rightbar.session`（`kind:'single'`）；它同时提供 `sidebar.right.pane.tab`（`kind:'keyed'`，`hookContext: TabHookContext`）作为三方 tab 的注册口。
+  4. **顺序**：模块图里官方包排在 `dsh-workbench` **之前**（抓取服务端 combo URL 的顺序为证：`@deepseek-ai/dsh-client-ui-sidebar-right` 在 `dsh-workbench` 之前）→ 官方先占位，workbench 后注册即抛异常，面板从未注册上。点击按钮只是调用了 `layout.openRightbar()` 开出官方右栏。
+  5. **为何不是改名可修**：D-024 把 `details` 改为 `rightbar` 是**不完整的**（见 D-024 更正）——0.1.2 时 `details` 无人占用，插件可直接占整列；0.1.5 它变成有主的整列槽。正确落点是 `sidebar.right.pane.tab` + `dsh-client-ui-dockkit` 的 `TabHookContext`（还需 `TabRecord` / `PaneId` / locale namespace / params 类型），**属于重写 UI 集成，不是改个名**。
+- **决策**：
+  1. **本插件不再自维护，标记废弃、代码保留归档**（与 D-023 处理 vision-adapter 同法）：`plugins.json` 补 `deprecated` 字段并在 `description` 前缀「【已废弃 2026-09-14】」；插件自身 `README.md` 顶部加 WARNING 横幅；根 `README.md` 的能力对照表、功能小节与 FAQ 三处同步标注。**既有安装命令保持有效**，DSH ≤ 0.1.2-rc.1 那条线上 `details` 无人占用，插件仍可正常工作。
+  2. **替代品：`dsh-better-sidebar@0.19.1`**（[omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)，3570 stars，2026-09-13 仍在推送）。选它的依据（均为实测，不是只看日期）：
+     - README 明示「**已适配 DSH 原生侧边栏 API**（v0.19.0 起，DSH `0.1.5-rc.1+`）……插件**不再自绘右侧面板**」，并声明 **v0.19.1 已在 `0.1.5-rc.2` 完成真机挂载验证**。
+     - 槽位用法实测：`sidebar.right.pane.tab` 4 处；`rightbar` / `openRightbar` / `openDetails` / `closeDetails` / `shell.overlay` **全为 0**；7 处 `details` 经逐条查看全是 `<details>` HTML 元素、`-webkit-details-marker` CSS 与文案，`name:"details"` 注册为 0。
+     - peer 依赖 15 个核心包全部 `^0.1.5-rc.1`，用 semver 对 `0.1.5-rc.2` 逐个校验 **15/15 满足**。
+     - 能力是 workbench 的超集：文件树 / CodeMirror 编辑 / 预览（Markdown 含 Mermaid、图片、HTML、PDF）/ 内嵌浏览器 / **真实终端** / Git 文件变动 / 后台任务 / **侧边对话**。
+  3. **淘汰过程中的对照结论**（避免日后重复调研）：`dsh-plugin-git`（npm，2026-08-19）peer 停在 `^0.1.0-rc.5`；`@all3cn/dsh-better-sidebar-n23`（2026-08-31）实测仍用 `openDetails` + `details` + `conversation`，属同一类坏；`EasyTZ/dsh-git` 用 `shell.overlay` + `sidebar.footer.action`（两版契约未变）**架构上安全**，但 peer 范围 `^0.1.1-rc.2` 与 `0.1.5-rc.2` 不匹配，会引入重复核心包，暂不采用。
+- **验证**：
+  - **安装**：`dsh plugin --profile web add dsh-better-sidebar@latest` 首次按预期被 `ERR_PNPM_IGNORED_BUILDS: node-pty@1.1.0` 拦下（依赖已写入）；把 profile `pnpm-workspace.yaml` 的 `allowBuilds` 占位符 `node-pty: "set this to true or false"` 改为 `true`（同款占位符在 dsh-desktop 仓库也存在，那里是 `false`）后重跑：**exit 0**，node-pty 的 `install`（prebuild 检查）与 `postinstall` 均 Done。
+  - **落盘**：`dsh-better-sidebar@0.19.1` 进入 profile `dependencies`（`^0.19.1`）并被追加到 `dsh.profile.bundles` 末尾；`require('node-pty')` 实测可加载（导出 `spawn/fork/createTerminal/open/native`）。
+  - **卸载 workbench**：`dsh plugin --profile web remove dsh-workbench`（exit 0）后逐处核对——`package.json` 的 deps 与 bundles **均已移除**、`pnpm-lock.yaml` 残留 0 行、`cordis.patch.yml` 残留 0 行（该插件本就走 bundle patch 通道，无手工挂载行）；pnpm **留下一个陈旧的 `node_modules/dsh-workbench` 符号链接**（D-023 警告过的同类悬挂引用），已手动删除（只删链接，目标目录仍在）。
+  - **组合图验证**（新写的运行时检查，弥补 `smoke-web-profile` 覆盖不到客户端服务的盲区）：boot 真实 web profile → 取页面 → 解码 `&amp;` 后抓取 `/plugins/??…&rev=…` 聚合 bundle，**5/5 通过**——组合图含 `dsh-better-sidebar`、不含 `dsh-workbench`；payload 含 better-sidebar 注册 API（`sidebarRightTabs`/`registerTab`）、**不含** workbench 的 `rightbarSlotName` 标记、仍含费用插件槽 `conversation.composer.dock`。
+  - **Boot 门槛**：`scripts/smoke-web-profile.mjs` 在换装前后各跑一次，**均 OK**（`/` 200 / 30700 bytes、client bundles linked cleanly）。
+  - **备份**：改动前备份 profile 四文件 + `settings.yaml` 到 `~/dsh-upgrade/backup-profile-20260914-111130/`。
+- **遗留/风险**：
+  1. **需重启 DSH Desktop 才在 GUI 生效**（client 改动官方称硬刷新即可，host 半更新需重启；本次装的是新 host 插件，按重启处理）。GUI 侧尚待人工确认：右栏出现 better-sidebar 的 tab、终端可开、Git 面板可用。
+  2. better-sidebar 的 tabs 走官方 `sidebar.right.pane.tab`，与官方自带的文件/预览 tab 共存；若出现 tab 冲突或重复挂载，其 README 提到聚合包（如 `@linxin666/dsh-web-ui-all`）可能重复挂载，本 profile 装的是 `@linxin666/*` 的分散包，未触发该问题。
+  3. 本机 `web` profile 现有 9 个 bundle；`node-pty` 已放行构建，后续 profile 内 `pnpm install` 不会再被拦。
+  4. 若未来要复活 workbench，须按 `sidebar.right.pane.tab` + `dockkit` 契约重写（工作量等同新插件），不建议。
+
 
 

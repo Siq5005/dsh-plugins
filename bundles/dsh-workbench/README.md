@@ -1,5 +1,12 @@
 # dsh-workbench
 
+> [!WARNING]
+> **已废弃（2026-09-14）**：上游 DSH **0.1.5** 把右侧列由 `details` 改名为 `rightbar`，并把 `rightbar` 交给官方 `dsh-client-ui-sidebar-right` 独占（`rightbar` 是 `kind:'single'` 槽，slot 注册表对二次注册直接抛 `single slot "rightbar" already has a registration`）。本插件注册即失败、面板无法显示，且**不能靠改名修复**——按官方新契约改造需改用 `sidebar.right.pane.tab` + `dockkit` 的 `TabHookContext`，等于重写 UI 集成，故不再自维护（见 D-026）。
+>
+> **替代品：[dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) `@0.19.1`**（3570 stars；0.19.0 起适配 DSH `0.1.5-rc.1+`，其 README 声明已在 `0.1.5-rc.2` 上完成真机挂载验证；文件编辑 / 预览 / 内嵌浏览器 / 真实终端 / Git 全覆盖）。
+>
+> 代码保留归档，**既有安装命令仍然有效**，在 DSH ≤ 0.1.2-rc.1 上工作正常（那条线上 `details` 无人占用）。
+
 DSH Web GUI 右侧工作台：**文件浏览/编辑/预览 + 内嵌浏览器 + Git 面板**，VS Code 式布局。
 
 ## 能力
