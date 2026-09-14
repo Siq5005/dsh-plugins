@@ -426,3 +426,26 @@
   1. **目录收窄的静默陷阱（本次踩到）**：`modelInfoFor` 对**不在目录里**的模型强制 `inputModalities: ["text"]`（`dsh-llm-deepseek:1561`），图片随后被 `textOnlyImageText` 替换为 `[image omitted because this model accepts text only; attachment sha256:…]`——**不报错**。叠加停用插件后 `analyze_image` 兜底消失，任何被钉在目录外模型名（`deepseek-v4-flash`、`deepseek-v4-flash-vision-exp`）的旧会话都会变成图片盲；当时的当前会话即受影响。**处置**：在模型菜单把会话切到 `V4.1-Flash`（本机已按此恢复并验证）。未采用「把旧名加回目录并声明可收图」的兼容方案，以免已弃用名字重新出现在模型菜单。
   2. 本次只**标记**废弃，未删除 `bundles/dsh-vision-adapter`；若日后确定删除，对已按文档安装者是破坏性变更，需单独决策。
   3. 归档代码不再随上游核心演进而验证（peer 依赖仍为 `^0.1.0-rc.6`）；若未来出现真正只能收文本的路由需求而需复活它，须先按 0.1.2-rc.1 的 `prepareCall` / `imageRequestPricing` 契约复核（D-021 的同款漂移）。
+
+## D-024 dsh-workbench 右侧列兼容层：上游 0.1.5 把 details 列改名为 rightbar
+
+- **日期**：2026-09-14
+- **状态**：已采纳（代码 + 测试 + web profile 门槛均通过；**本机生效需等核心升级并替换 app**，见遗留 1）
+- **背景**：上游 `dsh-v0.1.5` 系列重构了 Web 右侧面板，其中一条是硬改名：
+  1. **release note 口径**：0.1.5-alpha.1「新增实验性右侧 Sidebar，支持多标签、分栏与全屏……**移除原 Detail 面板**」；alpha.2「**Web 插件面板 API 调整**：插件可通过 `sidebar.panellist` 与 `main` 注册全局面板；原 `conversation` Slot 迁移为 `main` 的 `conversation` key」。
+  2. **实测比对两版 npm 包**（解包后 grep `lib/`）——`@deepseek-ai/dsh-client-ui-layout`：0.1.2-rc.1 有 `openDetails`/`closeDetails`（6 次命中）与列名 `'details'`、`detailsCol`、`data-details-collapsed`；0.1.5-rc.2 中 **`Details` 字样 0 次命中**，取而代之 `openRightbar`/`closeRightbar`、列名 `'rightbar'`（并新增 `'sidebar'`）、`rightbarCol`/`sidebarCol`、`data-rightbar-col|collapsed|fullscreen|instant`。**旧名被整体移除而非保留别名**，故 workbench 在 0.1.5 上会静默失效（`slots.inject('details')` 指向不存在的槽）。
+  3. **同类槽位逐一核对，均安全**（无需改动）：`conversation.composer.dock` 18→18（`dsh-deepseek-cost`）、`conversation.session.header.utilities` 4→4（workbench）、`settings.section` 4→4、`settings.plugin.item` 22→22（`dsh-client-ui-settings-plugins`，`dsh-dafeiyu-mac`）。
+  4. 顺带结论：上游移除内置 Detail 面板后，本插件 README 原先「右侧列**替换内置的工具调用详情面板**」的取舍**不再存在**——workbench 成为该列的正规使用者，不再抢占内置面板。
+- **决策**：
+  1. **运行时探测，不做编译期分叉**：client bundle 是手写 module-loader 包（无构建期变量注入，见 `lib/client.js` 顶部注释），因此按布局服务暴露的方法探测列名——`rightbarSlotName()` 返回 `typeof layout.openRightbar === 'function' ? 'rightbar' : 'details'`；`openRightbar()` / `closeRightbar()` 优先新方法、回落旧方法。**同一份 bundle 兼容 0.1.2-rc.1 与 0.1.5+ 两条线**，无需按核心版本发两份产物。
+  2. **改动面 4 处**（`bundles/dsh-workbench/lib/client.js`）：前两处是按钮回调（`HeaderButton` 的 `onClick` 由内联 `layoutSvc.openDetails()` 改为 `openRightbar`；面板「关闭」按钮同理），后两处是 `slots.inject(<列名>)` 与 `slots.register({ name: <列名> })`。未采用 try/catch 双注册：注册到不存在的槽在部分实现下会抛错，且会留下悬挂 disposer。
+  3. **随附**：版本 0.1.0 → 0.1.1；`package.json` description 与 `README.md` 的布局/限制两节改写为双线口径；新增 `test/client-slots.test.js` 锁定两条线。
+- **验证**：
+  - **新增测试** `bundles/dsh-workbench/test/client-slots.test.js`（`node:test` + `node:assert/strict`，4 例）——新 API → 注册 `rightbar` 槽且点击调用 `openRightbar`/`closeRightbar`；旧 API → 注册 `details` 槽且点击调用 `openDetails`/`closeDetails`；布局服务缺失 → 槽名回落 `details` 且点击安全 no-op；缺 `slots` 服务不抛错。**4/4 通过**。装载方式：`new Function(源码)()` + `window.__ModuleLoader__` 桩，`require('react')` 与 `document` 均打桩（bundle 在 factory 求值期即调用 `injectCss()`），再沿注册的组件递归找出「工作台」「关闭」按钮并触发 `onClick`。
+  - **真实 web profile 门槛**（dsh-desktop checkout）：`DSH_DESKTOP_PROFILE=web node --expose-internals scripts/smoke-web-profile.mjs` → **通过**：token 握手 303 + `set-cookie`，`GET /` 200 / 26804 bytes / html marker yes，`plugin client bundles linked cleanly`。确认未破坏真实 profile（9 个 bundle，含 `@linxin666/*` 第三方）的 boot 链路。
+  - **残留静态核对**：改后 `openDetails|closeDetails|'details'` 仅剩注释与探测/回落分支中的说明性引用，无遗留直调。
+- **遗留/风险**：
+  1. **本机尚未生效**：当前运行核心仍是 0.1.2-rc.1（`~/.dsh/profiles/node_modules/@deepseek-ai/*` 全是指向 `/Applications/DSH Desktop.app/.../node_modules` 的符号链接，故 CLI 与桌面共用同一核心），探测会走 `details` 分支，行为与本改动前一致。要生效须完成核心升级后跑 `dsh-desktop/scripts/upgrade-app.sh` 替换 app bundle（**需先退出 GUI**，脚本自身会拒绝在 app 运行时执行）。
+  2. **smoke-web-profile 覆盖不到这条路径**：它验证的是模块图链接（缺导出会在 boot 期炸），而 `slots.inject` 是**客户端运行时**调用——0.1.5 上槽名若不对，表现为浏览器里面板不出现，**不会**让 boot 失败。故本测试是该改动唯一的自动化保护，**升级后仍必须在 GUI 里点一次「工作台」实测**。
+  3. 本插件未随上游 `main` 的后续迭代验证（`dsh-v0.1.5-rc.2` → master 已再前进 139 个 commit，含 composer 菜单重构）；若上游继续调整右侧列 API，需按本条同法重新比对 npm 包。
+
