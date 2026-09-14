@@ -532,6 +532,21 @@
   1. 归档代码**已无测试**（原 4 例随兼容层一同删除）；若日后复活，须按 `sidebar.right.pane.tab` 重写并补测（同 D-026）。
   2. 截图删除只影响 README 展示，不影响任何功能；日后要补真实截图时，**勿使用含本机会话内容的画面**（隐私），优先用示例工程或链接上游资产。
 
+### D-027 回填（2026-09-14）：已用隔离演示环境补上真实截图
+
+- **结果**：README 现内嵌两张实拍图 —— `docs/screenshots/better-sidebar-files.png`（文件面板，110KB）、`better-sidebar-git.png`（Git 面板，129KB），均为 1680×625，放在 D-026 的替代品说明处（引用块下方成对展示）与「外部插件」表。
+- **方法（可复现，供下次补图）**：
+  1. **隔离 home**：`DSH_HOME=/tmp/dsh-shot/home`，装 `dsh-better-sidebar@latest`（同样先被 `node-pty` 拦下 → 把该 home 的 profile `pnpm-workspace.yaml` 里 `allowBuilds.node-pty` 设为 `true` → 重跑）。
+  2. **示例工程**：`/Users/Shared/acme-todo`（自带 git 仓库 + 一处未暂存改动，令 Git 面板有内容）；**路径必须在无符号链接处**，见下方坑 1。
+  3. **起服务**：`DSH_HOME=… dsh web --host 127.0.0.1 --port 45999 --no-open`（独立端口，不影响在跑的桌面实例）。
+  4. **注入工作区**：隔离 home 没有工作区，向 `storages/workspace.json` 的 `tables.workspaces` 写入一条 `{path,title,sessionIds:[],createdAt,updatedAt}` 并登记进 `global.workspaceIds`。
+  5. **截图**：用 **仓库自带的 Electron 43**（与 app 同引擎）离屏渲染：`new BrowserWindow({ show:false, webPreferences:{ offscreen:true } })` → `loadURL(token URL)` → 等 `[data-rightbar-col]` 出现 → 点右栏滑轨的「新标签页」展开右栏（列宽 0px → 756px）→ 点目标 tab → `webContents.invalidate()` 强制重绘 → `capturePage()`。
+  6. **裁剪**：用 `nativeImage.crop()` 只保留顶部 1250px（2x）后缩放到 1680 宽，**彻底排除底部终端面板**——它显示的 `用户@主机` 提示符属于隐私信息。
+- **踩到的两个坑（重要，避免重走）**：
+  1. **工作区 attach 要求 realpath 全等**：`dsh-workspace` 的 `attachSession` 会 `realpathNormalize(header.cwd)` 后与 `workspace.path` **做严格字符串比较**，不等即抛 `session/workspace-attach-failed`。macOS 上 `/tmp` 的 realpath 是 `/private/tmp`，因此**注入的工作区路径必须写成真实路径**（本项目改用 `/Users/Shared/acme-todo`）。症状具有误导性：UI 里会话建了、能选中工作区，但编辑器一直停在「选择一个工作区开始」，且 host 无任何报错——只有抓 renderer console 才看到那条 warning。
+  2. **`executeJavaScript` 的返回值陷阱**：注入代码末尾若留下不可序列化值（函数）或 `; 0`（把结果吃掉），`await` 会挂死或拿到数字，表现为脚本无输出直至超时。写探测函数时**让最后一个表达式就是想要的值**，并给 Electron 脚本加**强制退出兜底**。
+- **隐私核对**：成图已逐张目视确认——只有示例工程 `acme-todo` 的文件与 git 状态，无本机会话内容、无真实路径、无 `用户@主机` 提示符。临时目录 `/tmp/dsh-shot`（含为让 UI 放行而复制进去的凭据副本）在拍摄后已删除。
+
 
 
 
