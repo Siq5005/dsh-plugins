@@ -583,3 +583,48 @@
   2. **新收录插件未做运行验证**：三条只核对了声明与元数据（版本 / peer / `engines` / stars / 推送时间），**未在 0.2.1-rc.2 上实际装载**。装完若插件管理器报兼容告警，以实测为准并回填本条。
   3. **停止维护的含义**：`dsh-desktop` 的 `patches/**` 与 `cordis.patch.yml` 不再跟进上游；若官方 Desktop 出现同类回归，需另开仓库或在官方 issue 上报，不要指望这里修。
   4. **未 archive 的代价**：仓库仍可被 clone / 提 issue，README 横幅与 `plugins.json` 是唯一的「已停止维护」信号。日后需要更强信号再执行 archive——本决策不禁止，只是本次不做。
+
+## D-029 在用插件清单纳入索引 + 截图来源策略
+
+- **日期**：2026-10-19
+- **状态**：已采纳（`plugins.json` 补 5 条至 21 条；README 新增「当前在用（2026-10-19 实测）」一节；3 张图入库 `assets/plugins/**`（2 张上游官方预览图 + 1 张自维护仓库截图），5 张既有实拍复用 `docs/screenshots/**`）
+- **背景**：
+  - **索引与在跑的 profile 脱节**。desktop profile 的 `dependencies` 共 11 项，其中 `@linxin666/dsh-client-ui-skin-center`、`@linxin666/dsh-client-ui-web-ui-settings`、`dsh-better-sidebar`、`dsh-pet-remielle`、`dsh-window-drag` 五条 `plugins.json` 里**根本没有**；反过来，排在前面的还有几条已废弃条目。读者无法从 README 判断「现在到底在用什么」，而在用清单恰恰是这个仓库最有价值的输出。
+  - **截图失真风险已经具体化**。2026-10-19 本机 `screencapture -x /tmp/shot.png` 返回 `could not create image from display`（宿主未授予屏幕录制权限），而「当前在用」一节又必须有图。此时随手拿上游图顶上再含糊其辞，就会写出「把上游图说成本机实拍」这类不可复核的叙述。
+- **决策**：
+  1. **索引以机器事实为准，人工叙述跟随机器**。事实来源固定为两处：`~/.dsh/profiles/desktop/package.json` 的 `dependencies`（11 项）与该 profile 的 `bundles` 数组（13 项，顺序即加载顺序）。README 据此新增「当前在用（2026-10-19 实测）」：依赖清单表（插件 / 版本 / 归属 / 用途 / 状态，覆盖全部 11 项）+ 实际加载顺序 + 官方内置 bundle 单列说明。
+  2. **官方内置 bundle 不进 `plugins.json`**。`@deepseek-ai/dsh-base`、`@deepseek-ai/dsh-web-app`、`@deepseek-ai/dsh-experimental-auto-review` 随官方 DSH Desktop `0.2.1-rc.2` 分发、不出现在 profile `dependencies` 中；索引条目的语义是「可安装的东西」，故只在 README 单列说明。
+  3. **试用后否掉的条目留在册，但必须显式标状态**。`@linxin666/dsh-pet` 补 `deprecated`（试用后否掉 + 原因 + 替代品 `dsh-pet-remielle` + 「既有安装命令仍然有效」），`description` 加「【未采用 2026-10-19，试用后否掉】」前缀；`@linxin666/dsh-skins` 描述改为「已退役 2026-10-19 兼容载体」并注明 UI 已拆到 skin-center、皮肤资产走 `~/.dsh/skins`。写法与 D-028 对废弃条目一致（前缀 + 字符串字段，四要素齐全）。
+  4. **截图来源策略（三级，按优先级）**：
+     - **① 本机实拍优先**：能 `screencapture` 就拍；已有实拍直接复用仓库内 `docs/screenshots/**`，不重复入库、不挪目录。
+     - **② 上游官方预览图**：拿不到实拍时，取上游随 npm 包 / 仓库分发的示意图，存到 `assets/plugins/<包名>/<文件名>`（`<包名>` 保留 scope，如 `assets/plugins/@linxin666/...`）。**图注必须写清三件事**：来源（包名 + 版本 + 包内路径，或 URL）、上游仓库 / 作者、许可。
+     - **③ 第三方版权素材不转存**：作者不持有版权的素材（如 `dsh-pet-remielle` 的 HoYoverse 角色图）只在 README 写「暂无预览图 + 原因 + 上游链接」，不在本仓库再分发。
+     - **硬规则**：禁止把上游图描述为「本机实拍」、禁止用无关图充数、禁止伪造截图；每张入库图必须 `file` 校验为图片且体积 > 0 才能写进 README。
+  5. **`plugins.json` 只追加与补注**：diff 仅含 5 条新增（均 `added: 2026-10-19`）+ 2 条描述/状态补注；不改任何 `bundles/**` 源码、不改 profile `package.json` 的 `dependencies`。
+- **验证**：
+  - **JSON**：`node -e 'JSON.parse(...)'` 通过，**21 条目**，`name` 无重复；带 `deprecated` 6 条（既有 5 条 + 新增 `@linxin666/dsh-pet`）；按 `plugins.schema.json` 逐条核对必填字段、`type` 枚举与未知字段，**0 违规**。
+  - **README 覆盖度**：依赖清单表逐行核对 `dependencies` 11 项（含 3 个 `link:` 项），官方内置 3 项单列；`bundles` 13 项按数组顺序列出并标出哪些是官方内置。
+  - **截图**：3 张新入库图 `file` 结果均为 `PNG image data`、体积 > 0（`cost-share-overview.png` 84 KB、`context-costs-preview.png` 88 KB、`watcher-overview.png` 432 KB）；README 相对路径逐条可解析（复用 `docs/screenshots/**` 5 张 + 新增 `assets/plugins/**` 3 张；`dsh-pet-remielle` 按策略 ③ 不出图）。
+  - **实拍不可用的环境事实**单独写进 README 图注说明段，可复核（`screencapture -x` 返回 `could not create image from display`，本机无屏幕录制权限）。
+- **遗留/风险**：
+  1. **4 个在用插件暂无预览图**：`@linxin666/dsh-client-ui-market`（上游 npm 包与 `dsh-web` 的 `packages/dsh-market` 均无图片文件）、`@linxin666/dsh-client-ui-web-ui-settings`（设置页容器，无专属截图）、`dsh-pet-remielle`（策略 ③）、`dsh-window-drag`（12px 透明拖拽带，无可见 UI 可拍）。宿主开放屏幕录制权限后应补实拍并回填本节。
+  2. **复用图有代差**：`skin-center` / `liangshen` / `ssh` / `better-sidebar` / `dafeiyu` 仍是 2026-08-18 / 09-14 的实拍，`0.2.1-rc.2` 下界面细节可能已经变了。图注已标拍摄日期，不算失真，但**不宜当作 0.2.1-rc.2 的界面证据**。
+  3. **`dsh-watcher` 的索引口径与本地不一致**：`plugins.json` 的 `install` 仍写 `github:aa2246740/dsh-watcher`（通用可移植），本机实际是 `link:` 本地仓库。索引保持可移植、本地口径记录在 README 表格，两者不合并。
+  4. **「否掉」复用 `deprecated` 字段承载**：本次把「上游废弃」与「我们试用后不采用」压进同一个字符串字段，语义开始混用；若状态种类继续变多，应扩 `plugins.schema.json` 加 `status` 枚举——本次不动 schema，避免破坏既有条目兼容性。
+
+## D-030 花费口径统一到 cost-meter 账本 + remielle 可重放补丁
+
+- **日期**：2026-10-19
+- **状态**：已采纳（在跑：remielle 气泡的今日花费读账本；补丁脚本可重放，带 `--check`）
+- **背景**：同一天里花费出现了**三个口径**——`dsh-deepseek-cost`（当天移除，定价是代码内快照）、`dsh-cost-meter` 账本（逐次 token × 价目表）、以及 `dsh-pet-remielle` 桌面气泡自己算的一份。remielle 上游走「余额差值累计」，自述有误差，与账本必然打架；两处数字不一致时用户无法判断哪个是真的，而「今天花了多少」恰恰是这个环境最常被问的一个数。
+- **决策**：
+  1. **唯一口径 = `dsh-cost-meter` 账本**：`~/.dsh/storages/cost-meter/ledger.json` 的 `days[today].costCny`。任何展示「今日花费」的面板 / 气泡 / 汇报都读它，不再各自算一份。
+  2. **用可重放补丁改 remielle，不 fork 上游**：脚本 `/Users/coe/project/deepseek/patches/remielle-ledger-basis.mjs`。目标文件 `~/.dsh/profiles/desktop/node_modules/dsh-pet-remielle/src/balance.js`；做法是在文件内插入 `readCostMeterToday()`（读账本 + `todayKey()` 取当天 + `costCny` 优先、`apiCostCny` 兜底），并在上游 `mode === 'ledger'` 分支前加短路——读到账本就返回账本数值并标 `usageBasis = 'cost-meter'`，读不到才**回落上游原逻辑**。幂等标记 `[unified-basis]`；支持 `--check` 只检查；回滚靠 `balance.js.bak-prebasis`。**不改上游仓库、不改 profile `package.json` 的 `dependencies`**。
+  3. **升级后必须重跑**：`pnpm install` / 插件升级会用上游文件覆盖补丁点，所以「`node /Users/coe/project/deepseek/patches/remielle-ledger-basis.mjs`」是与 `dsh-pet-remielle` 升级绑定的固定步骤（README「维护须知」第 2 条），`--check` 可一键确认补丁是否已失效。
+- **验证**：
+  - **账本字段实测存在**：`days["2026-10-19"]` 含 `costCny`（撰写本条目时读到 `15.209197690539593`），与 `cost` / `apiCost` / `input` / `output` / `cacheRead` / `calls` / `byProviderModel` 同一结构；`costCny / cost` ≈ `7.045`，即 `cost` 乘汇率的关系自洽。
+  - **脚本自检齐全**：目标文件不存在 → `exit 2`；锚点分支 `if (mode === 'ledger') {` 缺失 → `anchor(ledger branch) missing` / `exit 4`；`--check` 只读；幂等靠 `[unified-basis]` 标记检测。**本次未实际执行该脚本**——它会改写 `~/.dsh/**`，超出本任务的写入边界；执行证据应在上线窗口补记。
+- **遗留/风险**：
+  1. **脚本没进版本库（最大缺口）**：`remielle-ledger-basis.mjs` 只存在于本机 `/Users/coe/project/deepseek/patches/`，换机器 / 重装即丢失。建议后续收进本仓库（如 `patches/remielle-ledger-basis.mjs`）或改成 pnpm patch，否则本节的口径在新环境里无法复现。
+  2. **`dsh-dafeiyu-mac` 一旦恢复加载会重新分叉口径**：它 inject 的 `dshDeepseekBalance` 由 `dsh-cost-meter` 不提供，余额气泡会断，且它自带的费用行是另一份口径。恢复前必须先把它指向账本。
+  3. **账本路径是隐性契约**：口径依赖 `~/.dsh/storages/cost-meter/ledger.json` 这个未公开的存储布局；`dsh-cost-meter` 大版本若改目录，补丁会**静默回落**到上游逻辑（表现为「气泡又不准了」）。升级 cost-meter 后要顺手 `--check` 一次。

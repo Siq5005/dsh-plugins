@@ -80,7 +80,7 @@
     },
     {
       "name": "@linxin666/dsh-skins",
-      "description": "皮肤中心 + 10 款内置皮肤（miku/matrix/whale-mom/trading 等），先试穿再应用；皮肤中心需同时安装 @linxin666/dsh-client-ui-web-ui-settings。外部 npm 安装（dsh-web-ui 全家桶）",
+      "description": "【已退役 2026-10-19 兼容载体】皮肤中心 + 10 款内置皮肤（miku/matrix/whale-mom/trading 等），先试穿再应用。本机 desktop profile 已不安装：皮肤中心 UI 改由 @linxin666/dsh-client-ui-skin-center 提供，皮肤资产走 ~/.dsh/skins。外部 npm 安装（dsh-web-ui 全家桶）",
       "type": "bundle",
       "install": "dsh plugin --profile <name> add @linxin666/dsh-skins && dsh plugin --profile <name> add @linxin666/dsh-client-ui-web-ui-settings",
       "repo": "https://github.com/zhu1090093659/dsh-web-ui",
@@ -143,11 +143,56 @@
     },
     {
       "name": "@linxin666/dsh-pet",
-      "description": "多宠物伴侣：注册表驱动的浮动桌宠，随模型活动变化，支持逐只命名、抚摸 / 喂食互动与亲密度评分（渲染在 Web UI 内，无页面外置顶窗）。外部 npm 安装（dsh-web 全家桶，peerDependencies.@deepseek-ai/dsh = >=0.2.1-rc.2）",
+      "description": "【未采用 2026-10-19，试用后否掉】多宠物伴侣：注册表驱动的浮动桌宠，随模型活动变化，支持逐只命名、抚摸 / 喂食互动与亲密度评分（渲染在 Web UI 内，无页面外置顶窗）。外部 npm 安装（dsh-web 全家桶，peerDependencies.@deepseek-ai/dsh = >=0.2.1-rc.2）",
       "type": "bundle",
       "install": "dsh plugin --profile <name> add @linxin666/dsh-pet",
       "repo": "https://github.com/zhu1090093659/dsh-pet",
       "tags": ["desktop-pet", "companion", "web-ui", "dsh-web", "external"],
+      "added": "2026-10-19",
+      "deprecated": "2026-10-19 未采用（试用后否掉）：本机装 0.4.7 试用后判定不合适——桌宠渲染在 Web UI 内，没有页面外置顶窗，切走浏览器标签就看不见宠物。替代品：dsh-pet-remielle@0.4.6（同代际浮窗桌宠，2026-10-19 起在用）。条目保留，既有安装命令仍然有效。"
+    },
+    {
+      "name": "@linxin666/dsh-client-ui-skin-center",
+      "description": "皮肤中心 UI（@linxin666/dsh-skins 的界面部分已拆到本包）：浏览皮肤、先试穿再应用，皮肤资产写入 ~/.dsh/skins；本机 desktop profile 实装 0.4.7。外部 npm 安装（dsh-web 全家桶）",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add @linxin666/dsh-client-ui-skin-center",
+      "repo": "https://github.com/zhu1090093659/dsh-skins",
+      "tags": ["skins", "theme", "skin-center", "dsh-web", "external"],
+      "added": "2026-10-19"
+    },
+    {
+      "name": "@linxin666/dsh-client-ui-web-ui-settings",
+      "description": "Web UI 设置页容器：把皮肤中心 / 桌宠等插件的设置卡片挂进官方「设置」页（装皮肤中心通常同时要它）；本机 desktop profile 实装 0.4.7。外部 npm 安装（dsh-web 全家桶）",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add @linxin666/dsh-client-ui-web-ui-settings",
+      "repo": "https://github.com/zhu1090093659/dsh-web",
+      "tags": ["settings", "settings-page", "dsh-web", "external"],
+      "added": "2026-10-19"
+    },
+    {
+      "name": "dsh-better-sidebar",
+      "description": "右侧工作台（dsh-workbench 的替代品，2026-09-14 起在用）：文件编辑 / 预览 / 内嵌浏览器 / 真实终端 / Git / 侧边对话；0.19.0 起适配 DSH 0.1.5-rc.1+，本机 desktop profile 实装 0.28.0（0.2.1-rc.2）。外部 npm 安装",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add dsh-better-sidebar@latest",
+      "repo": "https://github.com/omdsh-dev/DSH-better-sidebar",
+      "tags": ["sidebar", "workbench", "terminal", "git", "file-explorer", "external"],
+      "added": "2026-10-19"
+    },
+    {
+      "name": "dsh-pet-remielle",
+      "description": "桌宠「蕾米埃尔」（Remielle）：浮窗桌宠，随会话状态切换动作与气泡；2026-10-19 桌宠选型的落定项，替代试用后否掉的 @linxin666/dsh-pet 与未真机验证的 dsh-pet-live2d；本机实装 0.4.6。外部 npm 安装（代码 MIT，角色素材版权归 HoYoverse，见包内 NOTICE）",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add dsh-pet-remielle",
+      "repo": "https://github.com/Gin-7/dsh-pet-remielle",
+      "tags": ["desktop-pet", "companion", "remielle", "external"],
+      "added": "2026-10-19"
+    },
+    {
+      "name": "dsh-window-drag",
+      "description": "桌面窗口顶部 12px 透明拖拽带：官方 macOS 桌面端是 titleBarStyle=hiddenInset（无原生标题栏），只有标了 [data-window-drag] 的行能拖窗，本插件补一条覆盖全站的可拖带并在全屏自动隐藏；纯客户端、皮肤无关。本地 link 自维护（本机 /Users/coe/project/deepseek/dsh-window-drag，不在本仓库托管）",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add /Users/coe/project/deepseek/dsh-window-drag",
+      "tags": ["desktop", "window-drag", "macos", "hiddenInset", "local-link"],
       "added": "2026-10-19"
     }
   ]

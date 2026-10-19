@@ -17,7 +17,7 @@
 
 <div align="center">
 
-[是什么](#是什么) · [功能插件](#功能插件) · [快速开始](#快速开始) · [常见问题](#常见问题) · [已知限制](#已知限制) · [贡献](#贡献) · [许可](#许可)
+[是什么](#是什么) · [当前在用](#当前在用2026-10-19实测) · [功能插件](#功能插件) · [快速开始](#快速开始) · [常见问题](#常见问题) · [已知限制](#已知限制) · [贡献](#贡献) · [许可](#许可)
 
 </div>
 
@@ -30,7 +30,7 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 | 能力 | 原生 dsh web | 本仓库收录的插件 |
 | --- | --- | --- |
 | 右侧工作台 | 官方右栏（文件浏览 + 预览，只读） | ~~[dsh-workbench](#dsh-workbench)~~：**已废弃 2026-09-14**（0.1.5 起 rightbar 被官方独占，注册即抛异常）→ 改用外部 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) |
-| 桌面宠物 | 无 | [dsh-dafeiyu-mac](#dsh-dafeiyu-mac)：由 DSH 会话状态驱动的 macOS 桌宠；Web UI 内可选 `@linxin666/dsh-pet`（外部，先试用再替换） |
+| 桌面宠物 | 无 | [`dsh-pet-remielle`](https://github.com/Gin-7/dsh-pet-remielle)（外部，2026-10-19 选型落定，见[当前在用](#当前在用2026-10-19实测)）；[dsh-dafeiyu-mac](#dsh-dafeiyu-mac)：代码保留但当前不加载 |
 | 费用统计 | 无 | ~~[dsh-deepseek-cost](#dsh-deepseek-cost)~~：**已废弃 2026-10-19**（只统计当前会话、定价为代码内快照）→ 改用外部 [`dsh-cost-meter`](https://github.com/Han-1413141/dsh-cost-meter) |
 | 视觉理解 | 官方原生（V4.1-Flash 起） | ~~[dsh-vision-adapter](#dsh-vision-adapter)~~：**已废弃 2026-09-10**，官方模型已能原生收图 |
 | 桌面端 | 官方（DSH Desktop `0.2.1-rc.2`） | ~~[dsh-desktop](#dsh-desktop--dsh-desktop-context-menu)~~：**已停止维护 2026-10-19**，整壳被官方 DSH Desktop 取代；原生右键菜单官方已内置 |
@@ -40,6 +40,165 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 | 创意工坊 | 无 | `@linxin666/dsh-client-ui-market`：GUI 内浏览并安装 dsh-market.com 的皮肤 / 宠物 / 插件（外部） |
 | 会话回放 | 无 | dsh-replay（外部，CLI）：离线解码完整轨迹 / diff / 统计 |
 | 工作流视图 | 无 | dsh-plugin-agent-workflow（外部，仅 rc.8）：模型调用链路 |
+
+## 当前在用（2026-10-19 实测）
+
+> 本节是**权威索引**：数据取自本机 desktop profile（`~/.dsh/profiles/desktop`）的 `package.json` `dependencies` 与实际 `bundles` 顺序，2026-10-19 实测。机读索引见 [`plugins.json`](plugins.json)。
+
+### 依赖清单（dependencies 11 项）
+
+| 插件 | 版本 | 归属 | 用途 | 状态 |
+| --- | --- | --- | --- | --- |
+| `@linxin666/dsh-client-ui-market` | `^0.4.7` | 外部社区 | 创意工坊：GUI 内浏览 dsh-market.com 的皮肤 / 宠物 / 社区插件并直接安装 | 在用 |
+| `@linxin666/dsh-client-ui-skin-center` | `^0.4.7` | 外部社区 | 皮肤中心：浏览皮肤、先试穿再应用（资产写入 `~/.dsh/skins`） | 在用 |
+| `@linxin666/dsh-client-ui-web-ui-settings` | `^0.4.7` | 外部社区 | 设置页容器：皮肤中心 / 桌宠等插件的设置卡片挂载处 | 在用 |
+| `@linxin666/dsh-liangshen` | `^0.4.7` | 外部社区 | 梁神模式：面向 V4 Pro 的两阶段锚定 agent 预设（Minimal 双工具锚定 → Code Mode / PTC） | 在用 |
+| `@linxin666/dsh-ssh` | `^0.4.7` | 外部社区 | 远程运维：主机管理 / Web 终端 / SFTP / 隧道 / 集群 + `ssh_*` agent 工具 | 在用 |
+| `dsh-better-sidebar` | `^0.28.0` | 外部社区 | 右侧工作台：文件编辑 / 预览 / 内嵌浏览器 / 真实终端 / Git | 在用（替代已废弃的 `dsh-workbench`） |
+| `dsh-cost-meter` | `^1.9.9` | 外部社区 | 费用统计：本会话 / 当日 / 历史费用 + 价格目录 + Coding Plan 额度 | 在用（替代已废弃的 `dsh-deepseek-cost`）；**今日花费唯一口径** |
+| `dsh-pet-remielle` | `^0.4.6` | 外部社区 | 浮窗桌宠「蕾米埃尔」：随会话状态切换动作与气泡 | 在用（2026-10-19 桌宠选型落定） |
+| `dsh-dafeiyu-mac` | `link:bundles/` | 本仓库自维护 | macOS 桌面大肥鱼：会话状态驱动的桌面伴侣 | **代码保留，但当前不加载**（在 `dependencies`、不在 `bundles`），venv 未删 |
+| `dsh-watcher` | `link:` 本地仓库 | 本地 link | 只读 agent 工作路径观察器：会话头部「眼睛」，把会话快照折叠成轮次 / 阶段 / 工具证据 | 在用 |
+| `dsh-window-drag` | `link:` 本地仓库 | 本地 link | 桌面窗口顶部 12px 透明拖拽带（`hiddenInset` 无原生标题栏时的拖窗兜底），全屏自动隐藏 | 在用 |
+
+版本列写的是 profile `package.json` 里的声明范围；`link:` 项无版本号，以本地仓库当前代码为准。
+
+### 实际加载顺序（bundles 13 项）
+
+加载与 patch 叠加顺序即 `bundles` 数组顺序，改动时请保持官方 base / web-app 在最前：
+
+1. `@deepseek-ai/dsh-base` — 官方内置
+2. `@deepseek-ai/dsh-web-app` — 官方内置
+3. `@linxin666/dsh-liangshen`
+4. `@linxin666/dsh-ssh`
+5. `@linxin666/dsh-client-ui-skin-center`
+6. `@linxin666/dsh-client-ui-web-ui-settings`
+7. `dsh-watcher`
+8. `dsh-better-sidebar`
+9. `dsh-window-drag`
+10. `@deepseek-ai/dsh-experimental-auto-review` — 官方内置
+11. `dsh-cost-meter`
+12. `@linxin666/dsh-client-ui-market`
+13. `dsh-pet-remielle`
+
+### 官方内置 bundle（不在 profile dependencies 内）
+
+| bundle | 说明 |
+| --- | --- |
+| `@deepseek-ai/dsh-base` | 核心：Host / agent 运行时 / 基础 client UI。随官方 DSH Desktop `0.2.1-rc.2` 分发 |
+| `@deepseek-ai/dsh-web-app` | Web 应用外壳（会话列表 / composer / 主题）。同上，版本跟 App 走 |
+| `@deepseek-ai/dsh-experimental-auto-review` | 实验性的自动审阅 provider。同上，按需保留在 `bundles` 里 |
+
+这三项由 App 内置提供，**不出现在** `~/.dsh/profiles/desktop/package.json` 的 `dependencies` 中，也不应手工 `pnpm add` 或单独升级——要换版本就换 App。
+
+### 截图
+
+图注里的「本机实拍」指本仓库作者在自己机器上真实截取的界面；「上游官方预览图」指插件作者随 npm 包 / 仓库分发的示意图；两者不混用。本机 `screencapture -x` 在 2026-10-19 实测返回 `could not create image from display`（宿主未授予屏幕录制权限），因此本次新增的图全部走「上游官方预览图」路径，并逐张注明来源与许可。
+
+**`@linxin666/dsh-client-ui-market`** — 暂无预览图。上游 npm 包 `0.4.7` 未附带预览图，上游仓库 `zhu1090093659/dsh-web` 的 `packages/dsh-market` 目录内也没有图片文件；本机截屏不可用。见 [上游仓库](https://github.com/zhu1090093659/dsh-web)。
+
+**`@linxin666/dsh-client-ui-skin-center`**
+
+![皮肤中心](docs/screenshots/skin-center.png)
+
+*来源：本仓库既有本机实拍 `docs/screenshots/skin-center.png`（2026-08-18，作者本机）。拍摄时皮肤中心尚未从 `@linxin666/dsh-skins` 拆成独立包，界面主体与现用 `@linxin666/dsh-client-ui-skin-center@0.4.7` 相同，本次未重拍。*
+
+**`@linxin666/dsh-client-ui-web-ui-settings`** — 暂无预览图。它是官方「设置」页的挂载容器，上游 npm 包与 `dsh-web` 仓库均无该包专属截图；其效果即「设置页里多出的皮肤中心 / 桌宠设置卡片」。（同一批设置卡片的实拍见上方皮肤中心图与下方 `dsh-dafeiyu-mac` 设置卡片图。）
+
+**`@linxin666/dsh-liangshen`**
+
+![梁神模式预设](docs/screenshots/liangshen-mode.png)
+
+*来源：本仓库既有本机实拍 `docs/screenshots/liangshen-mode.png`（2026-08-18，作者本机）。*
+
+**`@linxin666/dsh-ssh`**
+
+![SSH 主机管理面板](docs/screenshots/ssh-panel.png)
+
+*来源：本仓库既有本机实拍 `docs/screenshots/ssh-panel.png`（2026-08-18，作者本机）。*
+
+**`dsh-better-sidebar`**
+
+![better-sidebar 文件面板](docs/screenshots/better-sidebar-files.png)
+
+*来源：本仓库既有本机实拍（2026-09-14，隔离演示环境，示例工程 `acme-todo`），见 [D-027](DECISIONS.md) 回填。*
+
+**`dsh-cost-meter`**
+
+![cost-meter 本会话费用明细](assets/plugins/dsh-cost-meter/cost-share-overview.png)
+
+![cost-meter 上下文与缓存占比](assets/plugins/dsh-cost-meter/context-costs-preview.png)
+
+*来源：上游官方预览图，非本机实拍。取自 npm 包 `dsh-cost-meter@1.9.9` 自带文件 `docs/cost-share-overview.png`、`docs/context-costs-preview.png`；上游仓库 [Han-1413141/dsh-cost-meter](https://github.com/Han-1413141/dsh-cost-meter)，许可 MIT（图片版权归上游作者）。*
+
+**`dsh-pet-remielle`** — 暂无预览图。本机截屏不可用；上游包确实自带角色图（`assets/pets/remielle/`），但角色形象版权归 HoYoverse（见包内 `NOTICE`），**不在本仓库转存再分发**，请直接看 [上游仓库预览](https://github.com/Gin-7/dsh-pet-remielle)。
+
+**`dsh-dafeiyu-mac`**
+
+![大肥鱼桌宠状态气泡](docs/screenshots/dafeiyu-pet.png)
+
+*来源：本仓库既有本机实拍 `docs/screenshots/dafeiyu-pet.png`（2026-08-18，作者本机）。注意：该插件当前**不加载**，此图仅作代码保留期的存档参考。素材许可见 [`ASSET_LICENSE.md`](bundles/dsh-dafeiyu-mac/ASSET_LICENSE.md)（CC BY-SA 4.0）。*
+
+**`dsh-watcher`**
+
+![dsh-watcher 会话观察面板](assets/plugins/dsh-watcher/watcher-overview.png)
+
+*来源：同作者自维护仓库 `dsh-watcher/docs/screenshots/overview.png`（MIT），原图拷贝入库；非本次新拍。*
+
+**`dsh-window-drag`** — 暂无预览图。本地自维护仓库没有截图，效果又是一条 12px 的完全透明拖拽带，没有可见 UI 可拍；行为说明见 [dsh-window-drag README](https://github.com/Siq5005/dsh-window-drag)。
+
+### 维护须知
+
+**1）2026-10-19 的变动**
+
+- **移除** `dsh-deepseek-cost`：`plugins.json` 中标 `deprecated`，替代品 `dsh-cost-meter@1.9.9`。
+- **新增** `dsh-cost-meter`、`@linxin666/dsh-client-ui-market`、`dsh-pet-remielle`；随皮肤中心拆包同时补上 `@linxin666/dsh-client-ui-skin-center` 与 `@linxin666/dsh-client-ui-web-ui-settings`。
+- **桌宠选型落定** `dsh-pet-remielle@0.4.6`，试用记录见下节。
+- **`dsh-dafeiyu-mac` 保留代码但当前不加载**：它仍写在 `dependencies`（`link:bundles/`），但已从 `bundles` 移除，所以不会被加载；其 Python venv **没有删**，要恢复只需把 `dsh-dafeiyu-mac` 补回 `bundles`。
+
+**2）花费口径统一在 `dsh-cost-meter` 账本**
+
+今日花费的唯一口径 = `dsh-cost-meter` 账本里的 `days[today].costCny`：
+
+```sh
+node -e "const l=require(process.env.HOME+'/.dsh/storages/cost-meter/ledger.json');console.log(l.days[new Date().toISOString().slice(0,10)].costCny)"
+```
+
+`dsh-pet-remielle` 的桌面气泡按这个口径显示花费，为此打了一个**可重放补丁**，脚本在本机 `/Users/coe/project/deepseek/patches/remielle-ledger-basis.mjs`。
+
+> ⚠️ **插件升级后必须重跑该脚本**——升级会用上游文件覆盖掉补丁点，不重跑就会出现「气泡花费与账本对不上」。选择与验证过程见 [D-030](DECISIONS.md)。
+
+**3）desktop profile 的 `dsh plugin` CLI 被 App 独占**
+
+desktop profile 由 Electron App 独占持有，`dsh plugin --profile desktop ...` 会直接报错。改插件只能走手工流程：
+
+1. 编辑 `~/.dsh/profiles/desktop/package.json` 增删依赖；
+2. 在该目录执行 `pnpm install`；
+3. **手工把新插件补进 `bundles` 数组**——`pnpm install` 只装包、不写 `bundles`，漏了这一步表现就是「装好了但没反应」。
+
+**4）网络：本机 `github.com:443` 直连不通**
+
+推送与拉取要一次性走本地代理，不要写进全局配置：
+
+```sh
+git -c http.proxy=http://127.0.0.1:7897 push origin main
+```
+
+`raw.githubusercontent.com` 直连也常直接超时（`curl` 返回 `000`），下载上游素材时同样加一次性的 `-x http://127.0.0.1:7897`。
+
+### 桌宠试用记录
+
+2026-10-19 一天内试了三只宠物，结论如下（同代际 `0.2.1-rc.2`，全部真机试装）：
+
+| 候选 | 版本 | 结论 | 原因与处置 |
+| --- | --- | --- | --- |
+| `@linxin666/dsh-pet` | `0.4.7` | 否掉 | 桌宠渲染在 Web UI 内、没有页面外置顶窗，切走浏览器标签就看不见宠物。已从 profile 移除，`plugins.json` 标 `deprecated` |
+| `dsh-pet-live2d` | `3.3.2` | 试装后移除 | macOS 桌面窗这条路径上游作者**未真机验证**，装上去行为不确定；风险不可接受，撤 |
+| `dsh-pet-remielle` | `0.4.6` | **采用** | 浮窗常驻、桌面上随时可见；花费口径用可重放补丁接到 `dsh-cost-meter` 账本（见「维护须知」2） |
+| `dsh-dafeiyu-mac` | 本仓库 | 保留但不加载 | 代码与 venv 都留着，等 remielle 稳定一段时间再决定去留 |
+
+结论沉淀在 [D-030](DECISIONS.md)：桌宠选 Remielle，花费口径统一到账本。
+
 
 ## 功能插件
 
