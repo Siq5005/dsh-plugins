@@ -93,7 +93,7 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 
 ### 截图
 
-图注里的「本机实拍」指本仓库作者在自己机器上真实截取的界面；「上游官方预览图」指插件作者随 npm 包 / 仓库分发的示意图；两者不混用。本机 `screencapture -x` 在 2026-10-19 实测返回 `could not create image from display`（宿主未授予屏幕录制权限），因此本次新增的图全部走「上游官方预览图」路径，并逐张注明来源与许可。
+图注里的「本机实拍」指本仓库作者在自己机器上真实截取的界面——本次复用的 `docs/screenshots/**` 全部属于这一类；「上游官方预览图」指插件作者随 npm 包 / 仓库分发的示意图；两类不混用。本机 `screencapture -x` 在 2026-10-19 实测返回 `could not create image from display`（宿主未授予屏幕录制权限），所以本次**新入库的 3 张都不是实拍**：2 张取自 `dsh-cost-meter` 上游包内官方预览图，1 张取自同作者自维护仓库 `dsh-watcher` 的 docs 截图，逐张注明来源与许可。
 
 **`@linxin666/dsh-client-ui-market`** — 暂无预览图。上游 npm 包 `0.4.7` 未附带预览图，上游仓库 `zhu1090093659/dsh-web` 的 `packages/dsh-market` 目录内也没有图片文件；本机截屏不可用。见 [上游仓库](https://github.com/zhu1090093659/dsh-web)。
 
@@ -188,7 +188,7 @@ git -c http.proxy=http://127.0.0.1:7897 push origin main
 
 ### 桌宠试用记录
 
-2026-10-19 一天内试了三只宠物，结论如下（同代际 `0.2.1-rc.2`，全部真机试装）：
+2026-10-19 一天内试了三只宠物（外加原有 dafeiyu 的去留结论），结论如下（同代际 `0.2.1-rc.2`，三只均为真机试装）：
 
 | 候选 | 版本 | 结论 | 原因与处置 |
 | --- | --- | --- | --- |
