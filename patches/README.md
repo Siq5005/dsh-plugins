@@ -13,3 +13,12 @@
 诊断原始记录（问题现象、根因链、最小改动面）：`Siq5005/dsh-desktop` 的 `docs/dsh-codex-terra-bash-diagnosis.md`。
 
 使用：把补丁拷回宿主仓库（如 `dsh-desktop`）的对应位置并记录 `patchedDependencies` 后 `pnpm install` 自动重放；不要在 `node_modules` 里手改。
+## 非 pnpm patch 类：可重放改写脚本
+
+下列制品**不是** `pnpm patch`（它们改写的是第三方插件自身的源码文件，不是 `@deepseek-ai/*` 核心包），靠脚本幂等重放。
+
+| 脚本 | 目标文件 | 语义 | 应用处 | 重放 / 回滚 |
+| --- | --- | --- | --- | --- |
+| `remielle-ledger-basis.mjs` | `dsh-pet-remielle/src/balance.js` | 桌宠「今日已用」改为读 `~/.dsh/storages/cost-meter/ledger.json` 的 `days[today].costCny`（花费单一口径，见 D-030）；读不到账本时回落上游「余额差值累计」逻辑 | 本机 `~/.dsh/profiles/desktop/node_modules/dsh-pet-remielle/src/balance.js` | 应用：`node remielle-ledger-basis.mjs`（幂等，标记 `[unified-basis]`）；检查：`--check`；回滚：`cp src/balance.js.bak-prebasis src/balance.js`。**`dsh-pet-remielle` 每次升级后必须重跑**，否则静默回到旧口径 |
+
+脚本自身 sha256：`8696499f0cdf0dfca235ce12113b6e659611f8da`。
