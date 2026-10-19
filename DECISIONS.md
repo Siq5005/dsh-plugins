@@ -612,6 +612,15 @@
   3. **`dsh-watcher` 的索引口径与本地不一致**：`plugins.json` 的 `install` 仍写 `github:aa2246740/dsh-watcher`（通用可移植），本机实际是 `link:` 本地仓库。索引保持可移植、本地口径记录在 README 表格，两者不合并。
   4. **「否掉」复用 `deprecated` 字段承载**：本次把「上游废弃」与「我们试用后不采用」压进同一个字符串字段，语义开始混用；若状态种类继续变多，应扩 `plugins.schema.json` 加 `status` 枚举——本次不动 schema，避免破坏既有条目兼容性。
 
+**补记（2026-10-19，同日）**：宿主已授予屏幕录制权限，`screencapture` 恢复可用（`AXIsProcessTrusted=true`，窗口级截取用 `-l <windowId>` + CoreGraphics 取 id）。据此补拍并入库 3 张**本机实拍**：
+
+- `assets/plugins/@linxin666/dsh-client-ui-market/workshop-panel.png`（设置 → 创意工坊）
+- `assets/plugins/@linxin666/dsh-client-ui-skin-center/settings-card.png`（设置 → 皮肤）
+- `assets/plugins/dsh-cost-meter/cost-overview-redacted.png`（设置 → 费用 → 概览，金额已覆盖）
+
+**新增策略 ④（公开仓库的隐私硬约束）**：本仓库是 public，实拍只能截插件自身面板（设置页右侧内容区），**不得包含左侧会话列表与聊天正文**；面板内的金额、账号、主机名等用**实心色块覆盖**（不采用可被还原的模糊/像素化作为唯一手段）。三张新图均按此规则处理，`.gitignore` 未使用，原图只留在本机 `/tmp`。
+
+**遗留更新**：`@linxin666/dsh-client-ui-market` 与 `@linxin666/dsh-client-ui-skin-center` 已补实拍；`@linxin666/dsh-client-ui-web-ui-settings`（设置页容器，无专属界面）、`dsh-pet-remielle`（策略 ③ 版权）、`dsh-window-drag`（12px 透明拖拽带，无可见 UI）维持「暂无预览图 + 原因」。
 ## D-030 花费口径统一到 cost-meter 账本 + remielle 可重放补丁
 
 - **日期**：2026-10-19

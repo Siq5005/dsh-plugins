@@ -93,15 +93,29 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 
 ### 截图
 
-图注里的「本机实拍」指本仓库作者在自己机器上真实截取的界面——本次复用的 `docs/screenshots/**` 全部属于这一类；「上游官方预览图」指插件作者随 npm 包 / 仓库分发的示意图；两类不混用。本机 `screencapture -x` 在 2026-10-19 实测返回 `could not create image from display`（宿主未授予屏幕录制权限），所以本次**新入库的 3 张都不是实拍**：2 张取自 `dsh-cost-meter` 上游包内官方预览图，1 张取自同作者自维护仓库 `dsh-watcher` 的 docs 截图，逐张注明来源与许可。
+图注里的「本机实拍」指在本机真实截取的界面；「上游官方预览图」指插件作者随 npm 包 / 仓库分发的示意图。两类不混用，逐张注明来源与许可。
 
-**`@linxin666/dsh-client-ui-market`** — 暂无预览图。上游 npm 包 `0.4.7` 未附带预览图，上游仓库 `zhu1090093659/dsh-web` 的 `packages/dsh-market` 目录内也没有图片文件；本机截屏不可用。见 [上游仓库](https://github.com/zhu1090093659/dsh-web)。
+**截屏可用性**：2026-10-19 早期 `screencapture -x` 返回 `could not create image from display`（宿主未授予屏幕录制权限），当日授权后恢复。此后新增的 `assets/plugins/@linxin666/**` 与 `assets/plugins/dsh-cost-meter/cost-overview-redacted.png` 均为**本机实拍**；此前入库的 2 张 cost-meter 图与 1 张 watcher 图仍为上游材料。
+
+**打码规则（隐私）**：本仓库是公开仓库。实拍只截插件自身面板（设置页右侧内容区），**不截左侧会话列表与聊天正文**；面板内出现的金额、账号、主机名一律用**实心色块覆盖**（不使用可被还原的模糊）。已入库的三张实拍：创意工坊、皮肤中心设置卡、费用概览（金额已覆盖）。
+
+**`@linxin666/dsh-client-ui-market`**
+
+![创意工坊面板](assets/plugins/@linxin666/dsh-client-ui-market/workshop-panel.png)
+
+*来源：2026-10-19 本机实拍（设置 → 创意工坊）。画面为插件自身面板，不含会话或聊天内容。上游 npm 包 `0.4.7` 与 `zhu1090093659/dsh-web` 的 `packages/dsh-market` 均未附预览图，故此前标记「暂无」。*
 
 **`@linxin666/dsh-client-ui-skin-center`**
 
 ![皮肤中心](docs/screenshots/skin-center.png)
 
-*来源：本仓库既有本机实拍 `docs/screenshots/skin-center.png`（2026-08-18，作者本机）。拍摄时皮肤中心尚未从 `@linxin666/dsh-skins` 拆成独立包，界面主体与现用 `@linxin666/dsh-client-ui-skin-center@0.4.7` 相同，本次未重拍。*
+*来源：本仓库既有本机实拍 `docs/screenshots/skin-center.png`（2026-08-18，作者本机）。拍摄时皮肤中心尚未从 `@linxin666/dsh-skins` 拆成独立包。*
+
+2026-10-19 重拍（现用 `@linxin666/dsh-client-ui-skin-center@0.4.7` 的设置卡）：
+
+![皮肤中心设置卡](assets/plugins/@linxin666/dsh-client-ui-skin-center/settings-card.png)
+
+*来源：2026-10-19 本机实拍（设置 → 皮肤），只截设置页右侧内容区，画面内无会话内容。*
 
 **`@linxin666/dsh-client-ui-web-ui-settings`** — 暂无预览图。它是官方「设置」页的挂载容器，上游 npm 包与 `dsh-web` 仓库均无该包专属截图；其效果即「设置页里多出的皮肤中心 / 桌宠设置卡片」。（同一批设置卡片的实拍见上方皮肤中心图与下方 `dsh-dafeiyu-mac` 设置卡片图。）
 
@@ -130,6 +144,12 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 ![cost-meter 上下文与缓存占比](assets/plugins/dsh-cost-meter/context-costs-preview.png)
 
 *来源：上游官方预览图，非本机实拍。取自 npm 包 `dsh-cost-meter@1.9.9` 自带文件 `docs/cost-share-overview.png`、`docs/context-costs-preview.png`；上游仓库 [Han-1413141/dsh-cost-meter](https://github.com/Han-1413141/dsh-cost-meter)，许可 MIT（图片版权归上游作者）。*
+
+2026-10-19 本机实拍（概览页；三张汇总卡的金额已按打码规则覆盖）：
+
+![cost-meter 概览（金额已打码）](assets/plugins/dsh-cost-meter/cost-overview-redacted.png)
+
+*来源：2026-10-19 本机实拍（设置 → 费用 → 概览）。金额被实心色块覆盖；调用次数与 token 统计保留。*
 
 **`dsh-pet-remielle`** — 暂无预览图。本机截屏不可用；上游包确实自带角色图（`assets/pets/remielle/`），但角色形象版权归 HoYoverse（见包内 `NOTICE`），**不在本仓库转存再分发**，请直接看 [上游仓库预览](https://github.com/Gin-7/dsh-pet-remielle)。
 
