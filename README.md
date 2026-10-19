@@ -30,13 +30,14 @@ dsh-plugins 是一个可搜寻、可按需安装的 DeepSeek Harness（DSH）插
 | 能力 | 原生 dsh web | 本仓库收录的插件 |
 | --- | --- | --- |
 | 右侧工作台 | 官方右栏（文件浏览 + 预览，只读） | ~~[dsh-workbench](#dsh-workbench)~~：**已废弃 2026-09-14**（0.1.5 起 rightbar 被官方独占，注册即抛异常）→ 改用外部 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) |
-| 桌面宠物 | 无 | [dsh-dafeiyu-mac](#dsh-dafeiyu-mac)：由 DSH 会话状态驱动的 macOS 桌宠 |
-| 费用统计 | 无 | [dsh-deepseek-cost](#dsh-deepseek-cost)：按 DeepSeek 官方定价统计 token 用量与费用 |
+| 桌面宠物 | 无 | [dsh-dafeiyu-mac](#dsh-dafeiyu-mac)：由 DSH 会话状态驱动的 macOS 桌宠；Web UI 内可选 `@linxin666/dsh-pet`（外部，先试用再替换） |
+| 费用统计 | 无 | ~~[dsh-deepseek-cost](#dsh-deepseek-cost)~~：**已废弃 2026-10-19**（只统计当前会话、定价为代码内快照）→ 改用外部 [`dsh-cost-meter`](https://github.com/Han-1413141/dsh-cost-meter) |
 | 视觉理解 | 官方原生（V4.1-Flash 起） | ~~[dsh-vision-adapter](#dsh-vision-adapter)~~：**已废弃 2026-09-10**，官方模型已能原生收图 |
-| 桌面端 | 官方 / 社区方案 | [dsh-desktop](#dsh-desktop--dsh-desktop-context-menu)：Electron 桌面壳 + 原生右键菜单 |
+| 桌面端 | 官方（DSH Desktop `0.2.1-rc.2`） | ~~[dsh-desktop](#dsh-desktop--dsh-desktop-context-menu)~~：**已停止维护 2026-10-19**，整壳被官方 DSH Desktop 取代；原生右键菜单官方已内置 |
 | Agent 预设 | 官方预设 | 梁神模式：面向 V4 Pro 的两阶段锚定预设（外部） |
 | SSH 运维 | 无 | dsh-ssh：主机管理 / Web 终端 / SFTP / 隧道 / 集群（外部） |
 | 主题皮肤 | 默认主题 | dsh-skins：皮肤中心 + 多款内置皮肤（外部） |
+| 创意工坊 | 无 | `@linxin666/dsh-client-ui-market`：GUI 内浏览并安装 dsh-market.com 的皮肤 / 宠物 / 插件（外部） |
 | 会话回放 | 无 | dsh-replay（外部，CLI）：离线解码完整轨迹 / diff / 统计 |
 | 工作流视图 | 无 | dsh-plugin-agent-workflow（外部，仅 rc.8）：模型调用链路 |
 
@@ -84,9 +85,17 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-dafeiyu-m
 
 > macOS arm64 开箱即用；其他平台需要 Python 3.11+ 与 PySide6，或运行构建脚本生成 helper。详见 [dsh-dafeiyu-mac README](bundles/dsh-dafeiyu-mac/README.md)。
 
-### dsh-deepseek-cost
+### dsh-deepseek-cost（已废弃）
 
-按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用，在聊天输入框下方的统计行旁实时显示；支持高峰 / 空闲分时计价、按模型计价、会话投影持久化，并可查询当前 API Key 的账号余额。
+> **已废弃（2026-10-19）**：官方 DSH Desktop `0.2.1-rc.2` 这一代生态里已有能力超集，本插件不再自维护。**请改用外部插件 [`dsh-cost-meter`](https://github.com/Han-1413141/dsh-cost-meter)**（`1.9.9`，459 stars、MIT、2026-10-19 仍在推送，`engines.dsh` 覆盖 `0.2.x`）：本会话成本 / 当日费用 / 历史记录 + 官方价格同步，内置 170+ 模型 ID 价格目录与自动匹配，并提供 13 家 Coding Plan 订阅额度查询。
+>
+> ```sh
+> dsh plugin --profile <name> add dsh-cost-meter
+> ```
+>
+> ⚠️ `dsh-cost-meter` 不提供 `dshDeepseekBalance` 服务，`dsh-dafeiyu-mac` 桌宠的余额气泡联动会因此断掉（要么改一行 inject 指向 `costMeter.getState`，要么接受缺口）。原因与证据见 [D-028](DECISIONS.md)。
+>
+> 归档说明：按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用，在聊天输入框下方的统计行旁实时显示；支持高峰 / 空闲分时计价、按模型计价、会话投影持久化，并可查询当前 API Key 的账号余额。
 
 | 费用展示 | 设置页 |
 | --- | --- |
@@ -120,10 +129,15 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-vision-ad
 
 > 多模态调用消耗你自己的第三方 API 额度。详见 [dsh-vision-adapter README](bundles/dsh-vision-adapter/README.md)。
 
-### dsh-desktop & dsh-desktop-context-menu
+### dsh-desktop & dsh-desktop-context-menu（已停止维护）
 
-- [dsh-desktop](https://github.com/Siq5005/dsh-desktop)：把 Electron 桌面壳做成 DSH bundle（desktop-as-plugin），提供托盘、多 profile 切换与 DMG 打包。
-- [dsh-desktop-context-menu](bundles/dsh-desktop-context-menu/)：给 DSH Desktop 窗口加原生右键菜单（复制 / 粘贴 / 剪切 / 全选 / 后退 / 前进），Host-only，普通 Web profile 自动 no-op。
+> **已停止维护（2026-10-19）**：整个壳已被**官方 DSH Desktop `0.2.1-rc.2`** 取代（`deepseek-ai/deepseek-harness` 的 `apps/desktop`，tag `dsh-v0.2.1-rc.2`）——原生窗口、托盘、多 profile 切换、原生右键菜单与打包分发均由官方提供。
+>
+> - **迁移去向**：[官方 DSH Desktop 0.2.1-rc.2 发布页](https://github.com/deepseek-ai/deepseek-harness/releases)。两者共用 `~/.dsh`，profile / 会话 / 凭据无需搬动。
+> - [Siq5005/dsh-desktop](https://github.com/Siq5005/dsh-desktop)：README 顶部已加停止维护横幅；**未 archive**（可回填）。
+> - `dsh-desktop-context-menu`：官方已内置窗口原生右键菜单（`apps/desktop/src/main.ts:278`，tag `dsh-v0.2.1-rc.2`），复制 / 粘贴 / 剪切 / 全选自带，仅少「后退 / 前进」。
+>
+> 归档说明（仅适用于旧的自建壳环境）：把 Electron 桌面壳做成 DSH bundle（desktop-as-plugin），提供托盘、多 profile 切换与 DMG 打包；右键菜单插件为窗口加原生菜单，Host-only，普通 Web profile 自动 no-op。原因与证据见 [D-028](DECISIONS.md)。
 
 | 桌面客户端 | 原生右键菜单 |
 | --- | --- |
@@ -142,6 +156,9 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-desktop-c
 | 插件 | 说明 | 截图 |
 | --- | --- | --- |
 | [`dsh-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) | **右侧工作台（推荐）**：文件编辑 / 预览 / 内嵌浏览器 / 真实终端 / Git / 侧边对话；`0.19.0` 起适配 DSH `0.1.5-rc.1+` | ![文件面板](docs/screenshots/better-sidebar-files.png) |
+| [`dsh-cost-meter`](https://github.com/Han-1413141/dsh-cost-meter) | **费用统计（推荐，替代 dsh-deepseek-cost）**：本会话 / 当日 / 历史费用 + 官方价格同步，170+ 模型价格目录，13 家 Coding Plan 额度 | — |
+| [`@linxin666/dsh-pet`](https://github.com/zhu1090093659/dsh-pet) | 多宠物伴侣：注册表驱动的浮动桌宠，逐只命名 + 抚摸 / 喂食 + 亲密度（渲染在 Web UI 内） | — |
+| [`@linxin666/dsh-client-ui-market`](https://github.com/zhu1090093659/dsh-web) | 创意工坊：GUI 内浏览并安装 dsh-market.com 的皮肤 / 宠物 / 社区插件 | — |
 | `@linxin666/dsh-liangshen` | 梁神模式：两阶段锚定 agent 预设 | ![梁神模式](docs/screenshots/liangshen-mode.png) |
 | `@linxin666/dsh-skins` | 皮肤中心 + 多款内置皮肤 | ![皮肤中心](docs/screenshots/skin-center.png) |
 | `@linxin666/dsh-ssh` | SSH 运维：主机管理 / Web 终端 / SFTP / 隧道 / 集群 | ![SSH 面板](docs/screenshots/ssh-panel.png) |
@@ -152,6 +169,9 @@ dsh plugin --profile <name> add "Siq5005/dsh-plugins#path:/bundles/dsh-desktop-c
 
 ```sh
 dsh plugin --profile <name> add dsh-better-sidebar@latest
+dsh plugin --profile <name> add dsh-cost-meter
+dsh plugin --profile <name> add @linxin666/dsh-pet
+dsh plugin --profile <name> add @linxin666/dsh-client-ui-market
 dsh plugin --profile <name> add @linxin666/dsh-liangshen
 dsh plugin --profile <name> add @linxin666/dsh-skins
 dsh plugin --profile <name> add @linxin666/dsh-ssh
@@ -162,6 +182,14 @@ npx dsh-replay <session-id> --out replay.html
 > `dsh-better-sidebar` 首次安装会被 pnpm 拦下 `node-pty` 构建脚本（依赖已写入）；在 profile 的 `pnpm-workspace.yaml` 把 `allowBuilds` 的 `node-pty` 设为 `true` 后重跑即成功。
 
 > `dsh-skins` 的皮肤中心通常还需安装 `@linxin666/dsh-client-ui-web-ui-settings`。
+
+## 相关仓库状态
+
+| 仓库 | 状态 | 说明 |
+| --- | --- | --- |
+| [`Siq5005/deepseek-harness`](https://github.com/Siq5005/deepseek-harness) | 已归档（archived） | 我方对社区版 Harness 的 fork；**官方版已取代此 fork，仅供历史参考**——主线 `deepseek-ai/deepseek-harness` 已发布 `0.2.1-rc.2`，本 fork 不再跟进 |
+| [`Siq5005/dsh-desktop`](https://github.com/Siq5005/dsh-desktop) | 停止维护 2026-10-19 | 整个 Electron 壳被官方 DSH Desktop `0.2.1-rc.2` 取代（未 archive，可回填）；见 [D-028](DECISIONS.md) |
+| [`Siq5005/dsh-plugins`](https://github.com/Siq5005/dsh-plugins) | 维护中 | 本仓库：插件索引 + 归档代码，功能保留 |
 
 ## 快速开始
 
@@ -246,7 +274,7 @@ dsh-workbench 采用 VS Code 式右侧布局，占用 shell 的 details 布局�
 
 - `dsh-workbench`（已废弃、归档；仅 DSH ≤ 0.1.2-rc.1）无文件 watcher，需手动刷新；Git 面板暂不支持 push / pull / fetch。
 - `dsh-dafeiyu-mac` 内置 helper 仅 darwin-arm64；onefile 首启解压约 5–8 秒。
-- `dsh-deepseek-cost` 只统计当前会话；官方模型定价为代码快照，官方调价需更新代码。
+- `dsh-deepseek-cost`（已废弃 2026-10-19，改用 `dsh-cost-meter`）只统计当前会话；官方模型定价为代码快照，官方调价需更新代码。
 - `dsh-vision-adapter`（已废弃，归档）的图片描述记忆与问答缓存为会话内内存缓存，重启清空。
 - `dsh-desktop-context-menu` 仅在 DSH Desktop 的 Electron 主进程生效，普通 Web profile 自动 no-op。
 - 外部 npm 插件（梁神模式 / 皮肤中心 / SSH）的维护与已知问题以 [dsh-web-ui](https://github.com/zhu1090093659/dsh-web-ui) 项目为准。

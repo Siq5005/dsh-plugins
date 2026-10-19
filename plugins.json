@@ -21,12 +21,13 @@
     },
     {
       "name": "dsh-deepseek-cost",
-      "description": "按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用（未缓存输入 / 缓存输入 / 输出，分高峰空闲时段计价）；可选查询 DeepSeek 账号余额并联动桌宠气泡",
+      "description": "【已废弃 2026-10-19】按 DeepSeek 官方定价统计当前对话的 token 用量与累计费用（未缓存输入 / 缓存输入 / 输出，分高峰空闲时段计价）；可选查询 DeepSeek 账号余额并联动桌宠气泡",
       "type": "bundle",
       "path": "bundles/dsh-deepseek-cost",
       "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-deepseek-cost\"",
       "tags": ["token-usage", "cost-tracking", "pricing", "deepseek"],
-      "added": "2026-08-17"
+      "added": "2026-08-17",
+      "deprecated": "2026-10-19 废弃：替代品 dsh-cost-meter@1.9.9（459 stars、MIT、2026-10-19 仍在推送、engines.dsh 覆盖 0.2.x）是本插件的能力超集——本插件只统计当前会话、定价为代码内快照，官方调价必须改代码；dsh-cost-meter 内置 170+ 模型 ID 价格目录与自动匹配，提供本会话成本 / 当日费用 / 历史记录与 13 家 Coding Plan 订阅额度查询。注意：dsh-cost-meter 不提供 dshDeepseekBalance 服务，dsh-dafeiyu-mac 桌宠的余额气泡联动会断。代码保留归档，既有安装命令仍然有效。"
     },
     {
       "name": "dsh-vision-adapter",
@@ -50,21 +51,23 @@
     },
     {
       "name": "dsh-desktop",
-      "description": "DSH Desktop：把 Electron 桌面壳做成 DeepSeek Harness bundle（desktop-as-plugin）。Electron 主进程直接 boot Host Cordis，托盘 / 多 profile 切换 / DMG 打包；内置 @deepseek-ai/dsh 全量依赖",
+      "description": "【已停止维护 2026-10-19】DSH Desktop：把 Electron 桌面壳做成 DeepSeek Harness bundle（desktop-as-plugin）。Electron 主进程直接 boot Host Cordis，托盘 / 多 profile 切换 / DMG 打包；内置 @deepseek-ai/dsh 全量依赖",
       "type": "bundle",
       "install": "git clone https://github.com/Siq5005/dsh-desktop.git && cd dsh-desktop && pnpm install && ./node_modules/.bin/electron-builder --mac dmg",
       "repo": "https://github.com/Siq5005/dsh-desktop",
       "tags": ["desktop", "electron", "desktop-as-plugin", "shell", "dmg", "macos"],
-      "added": "2026-08-18"
+      "added": "2026-08-18",
+      "deprecated": "2026-10-19 停止维护：整个壳已被官方 DSH Desktop 0.2.1-rc.2（deepseek-ai/deepseek-harness 仓库的 apps/desktop，tag dsh-v0.2.1-rc.2）取代——原生窗口、托盘、多 profile 切换、窗口原生右键菜单与打包分发均由官方版提供，本仓库不再跟进上游 0.2.x 的 API 变更。替代品：官方 DSH Desktop 0.2.1-rc.2（https://github.com/deepseek-ai/deepseek-harness/releases）。代码保留归档，既有安装命令仍然有效。"
     },
     {
       "name": "dsh-desktop-context-menu",
-      "description": "给 DSH Desktop 的 Electron 窗口加原生右键菜单：复制 / 粘贴 / 剪切 / 全选 / 后退 / 前进（Host-only，普通 Web profile 自动 no-op）",
+      "description": "【已废弃 2026-10-19】给 DSH Desktop 的 Electron 窗口加原生右键菜单：复制 / 粘贴 / 剪切 / 全选 / 后退 / 前进（Host-only，普通 Web profile 自动 no-op）",
       "type": "bundle",
       "path": "bundles/dsh-desktop-context-menu",
       "install": "dsh plugin --profile <name> add \"Siq5005/dsh-plugins#path:/bundles/dsh-desktop-context-menu\"",
       "tags": ["desktop", "electron", "context-menu", "right-click", "native-menu"],
-      "added": "2026-08-18"
+      "added": "2026-08-18",
+      "deprecated": "2026-10-19 废弃：官方 DSH Desktop 0.2.1-rc.2 已内置窗口原生右键菜单（apps/desktop/src/main.ts:278，tag dsh-v0.2.1-rc.2），复制 / 粘贴 / 剪切 / 全选由官方自带，仅少「后退 / 前进」两项；本插件依赖 dsh-desktop 注入的 desktopRuntime，壳停止维护后不再跟进。替代品：官方 DSH Desktop 内置右键菜单。代码保留归档，既有安装命令仍然有效。"
     },
     {
       "name": "@linxin666/dsh-liangshen",
@@ -119,6 +122,33 @@
       "repo": "https://github.com/zoahdev/dsh-replay",
       "tags": ["replay", "debugger", "trajectory", "offline", "cli", "external"],
       "added": "2026-09-07"
+    },
+    {
+      "name": "dsh-cost-meter",
+      "description": "会话费用统计（dsh-deepseek-cost 的替代品）：本会话成本 / 当日费用 / 历史记录 + 官方价格同步，内置 170+ 模型 ID 价格目录与自动匹配，支持多厂商多模型计费与 13 家 Coding Plan 订阅额度查询。外部 npm 安装",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add dsh-cost-meter",
+      "repo": "https://github.com/Han-1413141/dsh-cost-meter",
+      "tags": ["token-usage", "cost-tracking", "pricing", "multi-vendor", "coding-plan", "external"],
+      "added": "2026-10-19"
+    },
+    {
+      "name": "@linxin666/dsh-client-ui-market",
+      "description": "创意工坊浏览卡片：在 GUI 内浏览 dsh-market.com 上的皮肤 / 宠物 / 社区插件并直接安装（皮肤与宠物写入 DSH home 资产目录，插件经可选插件管理器安装）。外部 npm 安装（dsh-web 全家桶，peerDependencies.@deepseek-ai/dsh = >=0.2.1-rc.2）",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add @linxin666/dsh-client-ui-market",
+      "repo": "https://github.com/zhu1090093659/dsh-web",
+      "tags": ["market", "workshop", "skins", "pets", "plugin-manager", "dsh-web", "external"],
+      "added": "2026-10-19"
+    },
+    {
+      "name": "@linxin666/dsh-pet",
+      "description": "多宠物伴侣：注册表驱动的浮动桌宠，随模型活动变化，支持逐只命名、抚摸 / 喂食互动与亲密度评分（渲染在 Web UI 内，无页面外置顶窗）。外部 npm 安装（dsh-web 全家桶，peerDependencies.@deepseek-ai/dsh = >=0.2.1-rc.2）",
+      "type": "bundle",
+      "install": "dsh plugin --profile <name> add @linxin666/dsh-pet",
+      "repo": "https://github.com/zhu1090093659/dsh-pet",
+      "tags": ["desktop-pet", "companion", "web-ui", "dsh-web", "external"],
+      "added": "2026-10-19"
     }
   ]
 }

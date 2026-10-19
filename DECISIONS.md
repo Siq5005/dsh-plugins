@@ -550,3 +550,36 @@
 
 
 
+
+## D-028 迁移到官方 DSH Desktop 0.2.1-rc.2 后的清理与替代关系
+
+- **日期**：2026-10-19
+- **状态**：已采纳（`dsh-plugins` 索引 + README 已标注并新增三条收录；`dsh-desktop` 已加停止维护横幅；两个远端仓库均**未 archive**，可逆、可回填）
+- **背景**：官方发布 `dsh-v0.2.1-rc.2`，其 `apps/desktop` 就是完整桌面客户端（原生窗口 / 托盘 / 多 profile 切换 / 窗口原生右键菜单 / 打包分发）。我方自建壳 `Siq5005/dsh-desktop` 的定位（desktop-as-plugin 的 Electron 包裹）被官方原生化整体覆盖，继续跟进只剩维护成本；同一代际里 `dsh-deepseek-cost` 的能力也被社区 `dsh-cost-meter` 覆盖成超集。标注方式按既定决策：**README 顶部横幅 + `plugins.json` 的 `deprecated` 字段**，明确**不做 GitHub archive**（可逆、可回填）。
+- **决策**：
+  1. **整壳级**：`Siq5005/dsh-desktop` 停止维护。README 顶部加横幅（整壳已被官方 DSH Desktop `0.2.1-rc.2` 取代 + 迁移去向 + 未 archive 可回填）。该仓库**没有 `plugins.json`**（索引统一由本仓库维护），故横幅是唯一落点。
+  2. **插件级**：`dsh-desktop`、`dsh-desktop-context-menu`、`dsh-deepseek-cost` 三条补 `deprecated`，`description` 前缀「【已废弃 / 已停止维护 2026-10-19】」。写法与既有 `dsh-vision-adapter` / `dsh-workbench` **完全一致**：同为 `plugins[].deprecated` 字符串字段，四要素齐全——日期 + 原因 + 替代品 + 「既有安装命令仍然有效」。
+  3. **新增收录**（外部，仅索引、不托管代码）：`dsh-cost-meter@1.9.9`、`@linxin666/dsh-client-ui-market@0.4.7`、`@linxin666/dsh-pet@0.4.7`，按 schema「新增插件必须追加」的要求追加到 `plugins.json` 末尾。
+  4. **fork 关系**：`Siq5005/deepseek-harness` 远端**已 archived**，README 新增「相关仓库状态」表注明「**官方版已取代此 fork，仅供历史参考**」。
+  5. **不做的事**：不改任何插件源码 / `bundles/**` / `package.json` 的 dependencies；不重排 JSON、不动无关字段——diff 只含目标条目。
+
+- **替代关系表**：
+
+  | 自维护项 | 处置 | 替代品 | 依据（均为实测，2026-10-19） |
+  | --- | --- | --- | --- |
+  | `dsh-desktop`（整壳） | 停止维护 | 官方 DSH Desktop `0.2.1-rc.2` | 官方 tag `dsh-v0.2.1-rc.2` 存在（`gh api .../git/ref/tags/dsh-v0.2.1-rc.2`）；本机 `/Applications/DeepSeek Harness.app` 的 `CFBundleShortVersionString` = `0.2.1-rc.2` |
+  | `dsh-desktop-context-menu` | 废弃 | 官方内置窗口原生右键菜单 | 官方 `apps/desktop/src/main.ts:278` 注册；仅少「后退 / 前进」 |
+  | `dsh-deepseek-cost` | 废弃 | `dsh-cost-meter@1.9.9` | `npm view`：MIT、`engines.dsh` = `>=0.2.0-rc.1 <0.3.0-0`；GitHub：459 stars、`pushed_at` 2026-10-19、未 archived |
+  | `dsh-dafeiyu-mac` | **保留（暂不替换）** | —（`@linxin666/dsh-pet` 仅作候选，先试用） | 见「遗留/风险」1 |
+  | `@linxin666/dsh-pet` / `@linxin666/dsh-client-ui-market` | 新增收录 | — | `npm view` 二者 `peerDependencies.@deepseek-ai/dsh` 实测均为 `>=0.2.1-rc.2` |
+
+- **验证**：
+  - **JSON**：`node -e "JSON.parse(require('fs').readFileSync('plugins.json','utf8'))"` 在 `dsh-plugins` 通过（16 条目，其中 5 条带 `deprecated`）；`dsh-desktop` 无此文件，不适用。
+  - **字段结构一致性**：新增的三条 `deprecated` 与 `dsh-vision-adapter` / `dsh-workbench` 同为字符串字段、四要素齐全，未引入新字段或嵌套对象。
+  - **远端同步**：两仓库 `git status` 干净，`git ls-remote origin refs/heads/main` 与本地 `HEAD` 一致。
+
+- **遗留/风险**：
+  1. **桌宠替换未定（最大缺口）**：`dsh-dafeiyu-mac` 暂保留，先装 `@linxin666/dsh-pet` 试用、满意后再移除。而 `dsh-cost-meter` **不提供 `dshDeepseekBalance` 服务**——只要 dafeiyu 还在岗，余额气泡联动就是断的：要么改一行 inject 指向 `costMeter.getState`，要么接受缺口；dafeiyu 一旦移除，这个问题自然消失。
+  2. **新收录插件未做运行验证**：三条只核对了声明与元数据（版本 / peer / `engines` / stars / 推送时间），**未在 0.2.1-rc.2 上实际装载**。装完若插件管理器报兼容告警，以实测为准并回填本条。
+  3. **停止维护的含义**：`dsh-desktop` 的 `patches/**` 与 `cordis.patch.yml` 不再跟进上游；若官方 Desktop 出现同类回归，需另开仓库或在官方 issue 上报，不要指望这里修。
+  4. **未 archive 的代价**：仓库仍可被 clone / 提 issue，README 横幅与 `plugins.json` 是唯一的「已停止维护」信号。日后需要更强信号再执行 archive——本决策不禁止，只是本次不做。
