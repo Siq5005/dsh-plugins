@@ -619,12 +619,12 @@
 - **背景**：同一天里花费出现了**三个口径**——`dsh-deepseek-cost`（当天移除，定价是代码内快照）、`dsh-cost-meter` 账本（逐次 token × 价目表）、以及 `dsh-pet-remielle` 桌面气泡自己算的一份。remielle 上游走「余额差值累计」，自述有误差，与账本必然打架；两处数字不一致时用户无法判断哪个是真的，而「今天花了多少」恰恰是这个环境最常被问的一个数。
 - **决策**：
   1. **唯一口径 = `dsh-cost-meter` 账本**：`~/.dsh/storages/cost-meter/ledger.json` 的 `days[today].costCny`。任何展示「今日花费」的面板 / 气泡 / 汇报都读它，不再各自算一份。
-  2. **用可重放补丁改 remielle，不 fork 上游**：脚本 `/Users/coe/project/deepseek/patches/remielle-ledger-basis.mjs`。目标文件 `~/.dsh/profiles/desktop/node_modules/dsh-pet-remielle/src/balance.js`；做法是在文件内插入 `readCostMeterToday()`（读账本 + `todayKey()` 取当天 + `costCny` 优先、`apiCostCny` 兜底），并在上游 `mode === 'ledger'` 分支前加短路——读到账本就返回账本数值并标 `usageBasis = 'cost-meter'`，读不到才**回落上游原逻辑**。幂等标记 `[unified-basis]`；支持 `--check` 只检查；回滚靠 `balance.js.bak-prebasis`。**不改上游仓库、不改 profile `package.json` 的 `dependencies`**。
+  2. **用可重放补丁改 remielle，不 fork 上游**：脚本 [`patches/remielle-ledger-basis.mjs`](patches/remielle-ledger-basis.mjs)（随本仓库分发；本机工作副本在 `/Users/coe/project/deepseek/patches/`）。目标文件 `~/.dsh/profiles/desktop/node_modules/dsh-pet-remielle/src/balance.js`；做法是在文件内插入 `readCostMeterToday()`（读账本 + `todayKey()` 取当天 + `costCny` 优先、`apiCostCny` 兜底），并在上游 `mode === 'ledger'` 分支前加短路——读到账本就返回账本数值并标 `usageBasis = 'cost-meter'`，读不到才**回落上游原逻辑**。幂等标记 `[unified-basis]`；支持 `--check` 只检查；回滚靠 `balance.js.bak-prebasis`。**不改上游仓库、不改 profile `package.json` 的 `dependencies`**。
   3. **升级后必须重跑**：`pnpm install` / 插件升级会用上游文件覆盖补丁点，所以「`node /Users/coe/project/deepseek/patches/remielle-ledger-basis.mjs`」是与 `dsh-pet-remielle` 升级绑定的固定步骤（README「维护须知」第 2 条），`--check` 可一键确认补丁是否已失效。
 - **验证**：
   - **账本字段实测存在**：`days["2026-10-19"]` 含 `costCny`（撰写本条目时读到 `15.209197690539593`），与 `cost` / `apiCost` / `input` / `output` / `cacheRead` / `calls` / `byProviderModel` 同一结构；`costCny / cost` ≈ `7.045`，即 `cost` 乘汇率的关系自洽。
-  - **脚本自检齐全**：目标文件不存在 → `exit 2`；锚点分支 `if (mode === 'ledger') {` 缺失 → `anchor(ledger branch) missing` / `exit 4`；`--check` 只读；幂等靠 `[unified-basis]` 标记检测。**本次未实际执行该脚本**——它会改写 `~/.dsh/**`，超出本任务的写入边界；执行证据应在上线窗口补记。
+  - **脚本自检齐全**：目标文件不存在 → `exit 2`；锚点分支 `if (mode === 'ledger') {` 缺失 → `anchor(ledger branch) missing` / `exit 4`；`--check` 只读；幂等靠 `[unified-basis]` 标记检测。**脚本已于 2026-10-19 在本机实际执行**（上一版此处写「未执行」，以此为准）：执行后在隔离环境（`/tmp/testhome`，未污染真实账本）验证——账本 `costCny=12.34` 时服务返回 `todayUsage=12.34` 且 `usageBasis='cost-meter'`；移除账本文件后回落上游逻辑返回 `0`。回滚副本 `src/balance.js.bak-prebasis` 已生成。
 - **遗留/风险**：
-  1. **脚本没进版本库（最大缺口）**：`remielle-ledger-basis.mjs` 只存在于本机 `/Users/coe/project/deepseek/patches/`，换机器 / 重装即丢失。建议后续收进本仓库（如 `patches/remielle-ledger-basis.mjs`）或改成 pnpm patch，否则本节的口径在新环境里无法复现。
+  1. ~~脚本没进版本库~~（2026-10-19 已解决）：脚本已收进本仓库 `patches/remielle-ledger-basis.mjs`（sha256 `8696499f0cdf0dfca235ce12113b6e659611f8da`），本机工作副本仍在 `/Users/coe/project/deepseek/patches/`，两处需保持一致。
   2. **`dsh-dafeiyu-mac` 一旦恢复加载会重新分叉口径**：它 inject 的 `dshDeepseekBalance` 由 `dsh-cost-meter` 不提供，余额气泡会断，且它自带的费用行是另一份口径。恢复前必须先把它指向账本。
   3. **账本路径是隐性契约**：口径依赖 `~/.dsh/storages/cost-meter/ledger.json` 这个未公开的存储布局；`dsh-cost-meter` 大版本若改目录，补丁会**静默回落**到上游逻辑（表现为「气泡又不准了」）。升级 cost-meter 后要顺手 `--check` 一次。
